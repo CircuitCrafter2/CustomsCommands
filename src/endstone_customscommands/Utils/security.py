@@ -24,6 +24,11 @@ WHITESPACE_RE = re.compile(r"\s")
 MAX_VALUE_LENGTH = 256
 MAX_DESCRIPTION_LENGTH = 256
 MAX_USAGE_LENGTH = 256
+MAX_CONTENT_LENGTH = 512  # execution / condition content
+MAX_COOLDOWN = 86400  # seconds
+MAX_DELAY = 3600  # seconds
+
+COMPARATOR_RE = re.compile(r"^(.+?)\s*(==|!=|>=|<=|>|<)\s*(.+)$")
 
 
 class InputError(ValueError):
@@ -121,6 +126,99 @@ def validate_command(
                 f"Invalid permission '{permission}': use letters, digits, "
                 "'_', '-' and '.' only."
             )
+
+    cooldown = command.get("cooldown", 0)
+    if (
+        isinstance(cooldown, bool)
+        or not isinstance(cooldown, int)
+        or not 0 <= cooldown <= MAX_COOLDOWN
+    ):
+        return f"Invalid cooldown: use a whole number of seconds between 0 and {MAX_COOLDOWN}."
+
+    for condition in command.get("conditions", []):
+        error = validate_condition(condition)
+        if error:
+            return error
+    return None
+
+
+### CONDITIONS & EXECUTIONS ###
+
+
+def parse_expression(text: str):
+    """Splits 'left <op> right' (op in ==, !=, >=, <=, >, <). Raises InputError."""
+    match = COMPARATOR_RE.match(text.strip())
+    if not match:
+        raise InputError(
+            "Invalid condition: use '<value> <operator> <value>' "
+            "with ==, !=, >=, <=, > or <."
+        )
+    return match.group(1).strip(), match.group(2), match.group(3).strip()
+
+
+def compare_values(left: str, op: str, right: str) -> bool:
+    """Numeric comparison when both sides are numbers, text comparison otherwise."""
+    try:
+        a, b = float(left), float(right)
+    except ValueError:
+        if op in ("==", "!="):
+            equal = left.strip().casefold() == right.strip().casefold()
+            return equal if op == "==" else not equal
+        raise InputError("Only == and != can be used to compare text.")
+    return {
+        "==": a == b,
+        "!=": a != b,
+        ">=": a >= b,
+        "<=": a <= b,
+        ">": a > b,
+        "<": a < b,
+    }[op]
+
+
+def validate_condition(condition) -> str | None:
+    if not isinstance(condition, dict):
+        return "Invalid condition."
+    ctype = condition.get("type")
+    content = condition.get("content")
+    message = condition.get("message", "")
+    if not isinstance(ctype, str) or not NAME_RE.match(ctype):
+        return "Invalid condition type."
+    if (
+        not isinstance(content, str)
+        or not content.strip()
+        or has_control_chars(content)
+        or len(content) > MAX_DESCRIPTION_LENGTH
+    ):
+        return "Invalid condition content (required, one line, 256 characters max)."
+    if (
+        not isinstance(message, str)
+        or has_control_chars(message)
+        or len(message) > MAX_DESCRIPTION_LENGTH
+    ):
+        return "Invalid condition message (one line, 256 characters max)."
+    if ctype == "permission" and not PERMISSION_RE.match(content.strip()):
+        return f"Invalid permission '{content}'."
+    if ctype == "expression":
+        try:
+            parse_expression(content)
+        except InputError as e:
+            return str(e)
+    return None
+
+
+def validate_execution_content(type_name: str, content) -> str | None:
+    """Checks the content of an execution line when it is saved."""
+    if not isinstance(content, str) or not content.strip():
+        return "The content can't be empty."
+    if has_control_chars(content) or len(content) > MAX_CONTENT_LENGTH:
+        return "The content must be a single line of 512 characters max."
+    if type_name == "delay":
+        try:
+            seconds = float(content)
+        except ValueError:
+            return "A delay must be a number of seconds."
+        if not 0 <= seconds <= MAX_DELAY:
+            return f"A delay must be between 0 and {MAX_DELAY} seconds."
     return None
 
 
@@ -138,6 +236,7 @@ def _check_template_start(template: str):
 
 
 def _sanitize(value: str, kind: str, key: str, in_quotes: bool, allow_selectors: bool):
+    value = value.replace("§", "")
     if kind == "placeholder":
         label = f"'{key}'"
     elif kind == "argument":
@@ -169,6 +268,7 @@ def render_line(
     custom: dict,
     allow_selectors: bool = False,
     strict: bool = True,
+    strip_formatting: bool = False,
 ) -> str:
     """
     Replaces {player}, {0}, {1}... and custom placeholders in a single pass.
@@ -199,7 +299,7 @@ def render_line(
         else:
             return match.group(0)
         if not strict:
-            return value
+            return value.replace("§", "") if strip_formatting else value
         return _sanitize(value, kind, key, in_quotes, allow_selectors)
 
     return PLACEHOLDER_RE.sub(replace, template)

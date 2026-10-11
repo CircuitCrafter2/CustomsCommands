@@ -60,6 +60,8 @@ def submit_command(self: Plugin, player: Player, command):
         "usages": command["usages"],
         "aliases": command["aliases"],
         "permissions": command["permissions"],
+        "cooldown": command.get("cooldown", 0),
+        "conditions": command.get("conditions", []),
     }
     write_commands_config(commandData)
     send_custom(

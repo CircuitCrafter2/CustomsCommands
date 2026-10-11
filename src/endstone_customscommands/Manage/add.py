@@ -12,9 +12,11 @@ from endstone._internal.endstone_python import Player
 from ..Utils.utils import error_custom
 from ..Manage.edit import (
     manage_aliases,
+    manage_conditions,
     manage_functionality,
     manage_permissions,
     manage_usages,
+    set_cooldown,
     set_command_description,
     set_command_name,
 )
@@ -28,6 +30,8 @@ def add_command(self: Plugin, player: Player, command):
     form.button("Manage Usages")
     form.button("Manage Aliases")
     form.button("Manage Permissions")
+    form.button("Set Cooldown")
+    form.button("Manage Conditions")
     form.button("§9Functionality")
     form.button("Submit")
 
@@ -45,11 +49,15 @@ def add_command(self: Plugin, player: Player, command):
         elif result.selection == 4:
             manage_permissions(self, player, command)
         elif result.selection == 5:
+            set_cooldown(self, player, command)
+        elif result.selection == 6:
+            manage_conditions(self, player, command)
+        elif result.selection == 7:
             if "name" not in command:
                 error_custom(player, "Set a name for the command first.")
                 return add_command(self, player, command)
             manage_functionality(self, player, command)
-        elif result.selection == 6:
+        elif result.selection == 8:
             submit_command(self, player, command)
 
     form.show(player).then(

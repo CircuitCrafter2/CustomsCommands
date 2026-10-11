@@ -53,6 +53,58 @@ Custom commands run on the **console**, so player input is validated before it i
   - Create, remove, and edit slash commands using a simple UI.
   - Configure the name, description, arguments, aliases, and permissions.
   - Add functionality on command execution.
+  - Set a cooldown and conditions for each command.
+
+# Execution Types
+Each command runs its **functionality** lines in order. Lines are checked before anything runs: if one of them is refused, none is executed.
+
+**Type**|**What it does**|**Example content**
+:-----:|:-----:|:-----:
+`command`|Runs a server command as the console.|`give "{player}" diamond {1}`
+`player_command`|Runs a command **as the player**, with their own permissions.|`spawn`
+`message`|Sends a chat message to the player.|`§aHello {player}!`
+`broadcast`|Sends a chat message to everyone.|`{player} used the command`
+`title`|Shows a title (and optional subtitle after `\|`).|`Welcome\|{player}`
+`popup`|Shows a popup above the hotbar.|`Hello {player}`
+`delay`|Waits N seconds before the **following** lines (max 3600).|`5`
+
+# Placeholders
+**Placeholder**|**Value**
+:-----:|:-----:
+`{player}`|Name of the player running the command.
+`{0}`, `{1}`...|The command's arguments.
+`{score:objective}`|The player's scoreboard score.
+`{x}` `{y}` `{z}`|The player's block coordinates.
+`{dimension}`|Dimension name (e.g. `Overworld`).
+`{gamemode}`|Game mode in lowercase (e.g. `survival`).
+`{health}`|The player's health, rounded.
+`{ping}`|The player's ping.
+`{online}`|Number of players online.
+`{uuid}`|The player's unique id.
+`{time}` / `{date}`|Server time (`HH:MM`) / date (`YYYY-MM-DD`).
+`{random:min:max}`|A random whole number between `min` and `max`.
+
+> Some values (`{health}`, `{ping}`, `{gamemode}`, `{x}`...) depend on your Endstone version. If one isn't available,
+> the player gets a clear error and nothing is executed.
+
+# Conditions & Cooldowns
+In the manager, use **Manage Conditions** and **Set Cooldown** when editing a command. They are saved in the JSON as
+`"conditions"` and `"cooldown"` (seconds, per player).
+
+- A command runs only if **every condition** is met. If one isn't, the player sees its message and nothing runs
+  (the cooldown isn't consumed).
+- **`expression`**: `<value> <operator> <value>` with `==`, `!=`, `>=`, `<=`, `>`, `<`. Placeholders are allowed
+  (`{score:kills} >= 5`, `{health} > 10`, `{0} == yes`). Numbers are compared as numbers, text only with `==`/`!=`.
+- **`permission`**: the player must have the given permission node.
+- Operators are read from the condition itself, never from player input, so an argument can't change the test.
+- Operators and other admins with `customscommands.cooldown.bypass` ignore cooldowns.
+
+```json
+"conditions": [
+    { "type": "expression", "content": "{score:kills} >= 5", "message": "You need 5 kills first!" }
+],
+"cooldown": 60
+```
 
 # Commands
 - `/commands` - `customscommands.command.manager`
@@ -95,10 +147,10 @@ I hope you find this plugin useful! Enjoy!
 Command Manager UI|✅
 Reset command|✅
 Documentation|🔷
-Placeholder Support|🔷
-More Execution Types|🔶
-Conditions|🔶
-Developer API|🔶
+Placeholder Support|✅
+More Execution Types|✅
+Conditions & Cooldowns|✅
+Developer API|✅
 Addon Integration|🔶
 
 ✅ - Complete

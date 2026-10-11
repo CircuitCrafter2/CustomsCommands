@@ -7,7 +7,11 @@
 > if cc is not None:
 >     cc.register_execution("my_type", my_execution)      # callback(player, content, args)
 >     cc.register_placeholder("my_id", my_placeholder)    # callback(player, args) -> str
+>     cc.register_condition("my_cond", my_condition)      # callback(player, content, args) -> bool
 > ```
+> If your execution runs its content **as a server command**, register it with `strict=True`
+> (`cc.register_execution("my_type", cb, strict=True)`) so player input is validated like the built-in `command` type.
+> Placeholder identifiers can't be `player`, a number, or start with `score:` / `random:`.
 > The `CommandManager` class below is only used by the legacy automatic discovery.
 
 **CustomsCommands** has its own API that developers can include in their plugins to integrate their plugin with CustomsCommands.

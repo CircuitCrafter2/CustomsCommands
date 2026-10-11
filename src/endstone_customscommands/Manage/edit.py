@@ -1,5 +1,6 @@
 from .submit import submit_command
 from ..Utils.utils import (
+    error_custom,
     read_commands_config,
     require_manager,
     strip_color_codes,
@@ -16,7 +17,12 @@ from ..form_wrapper import (
     ModalFormResponse,
 )
 from endstone._internal.endstone_python import Player
-from ..API.types import ExecutionTypes
+from ..API.types import ConditionTypes, ExecutionTypes
+from ..Utils.security import (
+    MAX_COOLDOWN,
+    validate_condition,
+    validate_execution_content,
+)
 
 
 def edit_command(self: Plugin, player: Player, command):
@@ -27,6 +33,8 @@ def edit_command(self: Plugin, player: Player, command):
     form.button("Manage Usages")
     form.button("Manage Aliases")
     form.button("Manage Permissions")
+    form.button("Set Cooldown")
+    form.button("Manage Conditions")
     form.button("§9Functionality")
     form.button("Submit")
 
@@ -44,8 +52,12 @@ def edit_command(self: Plugin, player: Player, command):
         elif result.selection == 4:
             manage_permissions(self, player, command)
         elif result.selection == 5:
-            manage_functionality(self, player, command)
+            set_cooldown(self, player, command)
         elif result.selection == 6:
+            manage_conditions(self, player, command)
+        elif result.selection == 7:
+            manage_functionality(self, player, command)
+        elif result.selection == 8:
             submit_command(self, player, command)
 
     form.show(player).then(
@@ -379,6 +391,14 @@ def set_command_name(self: Plugin, player: Player, command):
     )
 
 
+def execution_label(type_name: str) -> str:
+    if type_name == "command":
+        return "Enter a command for the server to run when executed."
+    if type_name == "player_command":
+        return "Enter a command to run as the player (with their permissions)."
+    return "Enter content to be parsed when executed."
+
+
 def functions_key(command):
     """Key under which the command's functionality is stored in the JSON."""
     return command.get("_original_name") or command["name"]
@@ -436,24 +456,22 @@ def select_functionality(self: Plugin, player: Player, command):
 
 
 def add_functionality(self: Plugin, player: Player, command, type: int):
-    # Index 0 is the built-in "command" execution; the others come from integrations.
+    # Index 0 is the "command" execution; the others are built-in or registered types.
     execution_types = ["command"] + ExecutionTypes.get_types()
     type_name = execution_types[type]
     form = ModalFormData()
     form.title("Add Execution")
-    if type_name == "command":
-        form.text_field(
-            "Enter a command for the server to run when executed.",
-            "say Hello, {0} {1}!",
-        )
-    else:
-        form.text_field("Enter content to be parsed when executed.", "{0} {1}")
+    form.text_field(execution_label(type_name), ExecutionTypes.get_hint(type_name))
 
     def submit(self: Plugin, player: Player, result: ModalFormResponse, command, type):
         if result.canceled:
             return manage_functionality(self, player, command)
         if not require_manager(player):
             return
+        error = validate_execution_content(type, result.formValues[0])
+        if error:
+            error_custom(player, error)
+            return manage_functionality(self, player, command)
         commandData = read_commands_config()
         key = functions_key(command)
         if key not in commandData["functions"]:
@@ -505,30 +523,176 @@ def edit_functionality(self: Plugin, player: Player, command, index):
     functions = commandData["functions"][functions_key(command)]
     form = ModalFormData()
     form.title("Edit Execution")
-    if functions[index]["type"] == "command":
-        form.text_field(
-            "Enter a command for the server to run when executed.",
-            functions[index]["content"],
-            functions[index]["content"],
-        )
-    else:
-        form.text_field(
-            "Enter content to be parsed when executed.",
-            functions[index]["content"],
-            functions[index]["content"],
-        )
+    form.text_field(
+        execution_label(functions[index]["type"]),
+        functions[index]["content"],
+        functions[index]["content"],
+    )
 
     def submit(self: Plugin, player: Player, result: ModalFormResponse, command, index):
         if result.canceled:
             return manage_functionality(self, player, command)
         if not require_manager(player):
             return
+        error = validate_execution_content(
+            functions[index]["type"], result.formValues[0]
+        )
+        if error:
+            error_custom(player, error)
+            return manage_functionality(self, player, command)
         commandData["functions"][functions_key(command)][index] = {
             "type": functions[index]["type"],
             "content": result.formValues[0],
         }
         write_commands_config(commandData)
         manage_functionality(self, player, command)
+
+    form.show(player).then(
+        lambda player=Player, response=ModalFormResponse: submit(
+            self, player, response, command, index
+        )
+    )
+
+
+### COOLDOWN & CONDITIONS ###
+
+
+def set_cooldown(self: Plugin, player: Player, command):
+    form = ModalFormData()
+    form.title("Set Cooldown")
+    current = str(command.get("cooldown", 0))
+    form.text_field("Seconds between two uses per player (0 = none)", "0", current)
+
+    def submit(self: Plugin, player: Player, result: ModalFormResponse, command):
+        if result.canceled:
+            return edit_command(self, player, command)
+        value = str(result.formValues[0]).strip() or "0"
+        if not value.isdigit() or int(value) > MAX_COOLDOWN:
+            error_custom(
+                player, f"The cooldown must be a whole number between 0 and {MAX_COOLDOWN}."
+            )
+        else:
+            command["cooldown"] = int(value)
+        edit_command(self, player, command)
+
+    form.show(player).then(
+        lambda player=Player, response=ModalFormResponse: submit(
+            self, player, response, command
+        )
+    )
+
+
+def condition_line(condition) -> str:
+    return strip_color_codes(f"{condition['type']}: {condition['content']}")
+
+
+def manage_conditions(self: Plugin, player: Player, command):
+    command.setdefault("conditions", [])
+    form = ActionFormData()
+    form.title("Manage Conditions")
+    form.body("The command only runs if every condition is met.")
+    form.button("Add Condition", "textures/ui/smithing-table-plus.png")
+    form.button("Remove Condition", "textures/ui/dark_minus.png")
+    for condition in command["conditions"]:
+        form.button(condition_line(condition))
+
+    def submit(self: Plugin, player: Player, result: ActionFormResponse, command):
+        if result.canceled:
+            return edit_command(self, player, command)
+        if result.selection == 0:
+            add_condition(self, player, command)
+        elif result.selection == 1:
+            remove_condition(self, player, command)
+        else:
+            edit_condition(self, player, command, result.selection - 2)
+
+    form.show(player).then(
+        lambda player=Player, response=ActionFormResponse: submit(
+            self, player, response, command
+        )
+    )
+
+
+def add_condition(self: Plugin, player: Player, command):
+    types = ConditionTypes.get_types()
+    form = ModalFormData()
+    form.title("Add Condition")
+    form.dropdown("Type", types)
+    form.text_field(
+        "Content (expression: {score:kills} >= 5, permission: a permission node)",
+        "{score:kills} >= 5",
+    )
+    form.text_field("Message shown when the condition isn't met", "You can't do that yet.")
+
+    def submit(self: Plugin, player: Player, result: ModalFormResponse, command):
+        if result.canceled:
+            return manage_conditions(self, player, command)
+        condition = {
+            "type": types[result.formValues[0]],
+            "content": str(result.formValues[1]).strip(),
+            "message": str(result.formValues[2]).strip(),
+        }
+        error = validate_condition(condition)
+        if error:
+            error_custom(player, error)
+        else:
+            command["conditions"].append(condition)
+        manage_conditions(self, player, command)
+
+    form.show(player).then(
+        lambda player=Player, response=ModalFormResponse: submit(
+            self, player, response, command
+        )
+    )
+
+
+def remove_condition(self: Plugin, player: Player, command):
+    if not command["conditions"]:
+        return manage_conditions(self, player, command)
+    form = ActionFormData()
+    form.title("Remove Condition")
+    form.body("Click a condition to remove it.")
+    for condition in command["conditions"]:
+        form.button(condition_line(condition))
+
+    def submit(self: Plugin, player: Player, result: ActionFormResponse, command):
+        if result.canceled:
+            return manage_conditions(self, player, command)
+        command["conditions"].pop(result.selection)
+        manage_conditions(self, player, command)
+
+    form.show(player).then(
+        lambda player=Player, response=ActionFormResponse: submit(
+            self, player, response, command
+        )
+    )
+
+
+def edit_condition(self: Plugin, player: Player, command, index):
+    condition = command["conditions"][index]
+    form = ModalFormData()
+    form.title("Edit Condition (" + condition["type"] + ")")
+    form.text_field("Content", condition["content"], condition["content"])
+    form.text_field(
+        "Message shown when the condition isn't met",
+        "You can't do that yet.",
+        condition.get("message", ""),
+    )
+
+    def submit(self: Plugin, player: Player, result: ModalFormResponse, command, index):
+        if result.canceled:
+            return manage_conditions(self, player, command)
+        updated = {
+            "type": command["conditions"][index]["type"],
+            "content": str(result.formValues[0]).strip(),
+            "message": str(result.formValues[1]).strip(),
+        }
+        error = validate_condition(updated)
+        if error:
+            error_custom(player, error)
+        else:
+            command["conditions"][index] = updated
+        manage_conditions(self, player, command)
 
     form.show(player).then(
         lambda player=Player, response=ModalFormResponse: submit(

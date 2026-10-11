@@ -16,6 +16,7 @@ prefix = "§l§f[§aCustoms§6Commands§f]§r >> "
 BUILTIN_COMMANDS = ("commands", "resetcommands")
 
 MANAGER_PERMISSION = PERMISSION_PREFIX + "manager"
+COOLDOWN_BYPASS_PERMISSION = "customscommands.cooldown.bypass"
 
 # Settings stored in the JSON file ("settings" key). Edit them in the file, not in the UI.
 DEFAULT_SETTINGS = {

@@ -57,7 +57,17 @@ def command_manager(self: Plugin, player: Player):
         if result.canceled:
             return
         if result.selection == 0:
-            add_command(self, player, {"usages": [], "aliases": [], "permissions": []})
+            add_command(
+                self,
+                player,
+                {
+                    "usages": [],
+                    "aliases": [],
+                    "permissions": [],
+                    "cooldown": 0,
+                    "conditions": [],
+                },
+            )
         elif result.selection == 1:
             remove_command(self, player)
         else:
@@ -74,6 +84,8 @@ def command_manager(self: Plugin, player: Player):
                     "usages": list(command["usages"]),
                     "aliases": list(command["aliases"]),
                     "permissions": list(command["permissions"]),
+                    "cooldown": command.get("cooldown", 0),
+                    "conditions": [dict(c) for c in command.get("conditions", [])],
                 },
             )
 
