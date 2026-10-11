@@ -1,5 +1,10 @@
 from .submit import submit_command
-from ..Utils.utils import read_commands_config, strip_color_codes, write_commands_config
+from ..Utils.utils import (
+    read_commands_config,
+    require_manager,
+    strip_color_codes,
+    write_commands_config,
+)
 
 from endstone.plugin import Plugin
 from ..form_wrapper import (
@@ -54,8 +59,8 @@ def confirm_exit_edit_command(self: Plugin, player: Player, command):
     form = MessageFormData()
     form.title("Confirm Exit")
     form.body("Are you sure you want to exit without saving?")
-    form.button1("Submit")
-    form.button2("Cancel")
+    form.button1("Yes, exit")
+    form.button2("No, keep editing")
 
     def exit_edit_command(
         self: Plugin, player: Player, result: MessageFormResponse, command
@@ -102,7 +107,7 @@ def manage_permissions(self: Plugin, player: Player, command):
 def add_permission(self: Plugin, player: Player, command):
     form = ModalFormData()
     form.title("Add Permission")
-    form.text_field("Permission", "easyas.command.all", "easyas.command.all")
+    form.text_field("Permission", "customscommands.command.all", "customscommands.command.all")
 
     def submit(self: Plugin, player: Player, result: ModalFormResponse, command):
         if result.canceled:
@@ -374,16 +379,21 @@ def set_command_name(self: Plugin, player: Player, command):
     )
 
 
+def functions_key(command):
+    """Key under which the command's functionality is stored in the JSON."""
+    return command.get("_original_name") or command["name"]
+
+
 def manage_functionality(self: Plugin, player: Player, command):
     form = ActionFormData()
     form.title("Manage Functionality")
-    form.body("Functionality determines what happens what your command is executed.")
+    form.body("Functionality determines what happens when your command is executed.")
     form.button("Add Execution", "textures/ui/smithing-table-plus.png")
     form.button("Remove Execution", "textures/ui/dark_minus.png")
     commandData = read_commands_config()
     functions = commandData["functions"]
-    if command["name"] in functions:
-        for func in functions[command["name"]]:
+    if functions_key(command) in functions:
+        for func in functions[functions_key(command)]:
             line = func["type"] + ": " + func["content"]
             form.button(strip_color_codes(line))
 
@@ -426,9 +436,12 @@ def select_functionality(self: Plugin, player: Player, command):
 
 
 def add_functionality(self: Plugin, player: Player, command, type: int):
+    # Index 0 is the built-in "command" execution; the others come from integrations.
+    execution_types = ["command"] + ExecutionTypes.get_types()
+    type_name = execution_types[type]
     form = ModalFormData()
     form.title("Add Execution")
-    if type == 0:
+    if type_name == "command":
         form.text_field(
             "Enter a command for the server to run when executed.",
             "say Hello, {0} {1}!",
@@ -439,10 +452,13 @@ def add_functionality(self: Plugin, player: Player, command, type: int):
     def submit(self: Plugin, player: Player, result: ModalFormResponse, command, type):
         if result.canceled:
             return manage_functionality(self, player, command)
+        if not require_manager(player):
+            return
         commandData = read_commands_config()
-        if command["name"] not in commandData["functions"]:
-            commandData["functions"][command["name"]] = []
-        commandData["functions"][command["name"]].append(
+        key = functions_key(command)
+        if key not in commandData["functions"]:
+            commandData["functions"][key] = []
+        commandData["functions"][key].append(
             {"type": type, "content": result.formValues[0]}
         )
         write_commands_config(commandData)
@@ -450,7 +466,7 @@ def add_functionality(self: Plugin, player: Player, command, type: int):
 
     form.show(player).then(
         lambda player=Player, response=ModalFormResponse: submit(
-            self, player, response, command, ExecutionTypes.get_types()[type - 1]
+            self, player, response, command, type_name
         )
     )
 
@@ -461,17 +477,19 @@ def remove_functionality(self: Plugin, player: Player, command):
     form.body("Click an execution to remove it.")
     commandData = read_commands_config()
     functions = commandData["functions"]
-    if command["name"] not in functions:
+    if functions_key(command) not in functions:
         return manage_functionality(self, player, command)
-    for func in functions[command["name"]]:
+    for func in functions[functions_key(command)]:
         line = func["type"] + ": " + func["content"]
         form.button(strip_color_codes(line))
 
     def submit(self: Plugin, player: Player, result: ActionFormResponse, command):
         if result.canceled:
             return manage_functionality(self, player, command)
+        if not require_manager(player):
+            return
         commandData = read_commands_config()
-        commandData["functions"][command["name"]].pop(result.selection)
+        commandData["functions"][functions_key(command)].pop(result.selection)
         write_commands_config(commandData)
         manage_functionality(self, player, command)
 
@@ -484,7 +502,7 @@ def remove_functionality(self: Plugin, player: Player, command):
 
 def edit_functionality(self: Plugin, player: Player, command, index):
     commandData = read_commands_config()
-    functions = commandData["functions"][command["name"]]
+    functions = commandData["functions"][functions_key(command)]
     form = ModalFormData()
     form.title("Edit Execution")
     if functions[index]["type"] == "command":
@@ -503,7 +521,9 @@ def edit_functionality(self: Plugin, player: Player, command, index):
     def submit(self: Plugin, player: Player, result: ModalFormResponse, command, index):
         if result.canceled:
             return manage_functionality(self, player, command)
-        commandData["functions"][command["name"]][index] = {
+        if not require_manager(player):
+            return
+        commandData["functions"][functions_key(command)][index] = {
             "type": functions[index]["type"],
             "content": result.formValues[0],
         }

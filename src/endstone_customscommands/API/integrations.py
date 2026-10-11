@@ -4,7 +4,8 @@ import importlib.util
 from endstone._internal.endstone_python import ColorFormat
 from endstone.plugin import Plugin
 from .types import ExecutionTypes, PlaceholderTypes
-from ..Utils.utils import read_commands_config, write_commands_config
+from ..Utils.utils import BUILTIN_COMMANDS, read_commands_config, write_commands_config
+from ..Utils.security import migrate_permission, validate_command
 
 
 ### API HANDLER ###
@@ -12,8 +13,16 @@ from ..Utils.utils import read_commands_config, write_commands_config
 # Define paths
 plugins_file_path = os.path.abspath("./plugins/")
 extraction_base_path = os.path.join(
-    os.getcwd(), "plugins", ".processes", "EasyAsCommands"
+    os.getcwd(), "plugins", ".processes", "CustomsCommands"
 )
+
+
+def _is_safe_member(base: str, member: str) -> bool:
+    """True if extracting `member` stays inside `base`."""
+    target = os.path.abspath(os.path.join(base, member))
+    return target == os.path.abspath(base) or target.startswith(
+        os.path.abspath(base) + os.sep
+    )
 
 
 class APIHandler:
@@ -21,9 +30,6 @@ class APIHandler:
         self.logger.info("§b§lDiscovering integrations...")
 
         # Check if directory exists; if not, create it.
-        extraction_base_path = os.path.join(
-            os.getcwd(), "plugins", "processes", "EasyAsCommands"
-        )
         if not os.path.exists(extraction_base_path):
             os.makedirs(extraction_base_path)
 
@@ -37,6 +43,14 @@ class APIHandler:
                     wheel_file_path = os.path.join(plugins_file_path, file_name)
 
                     with zipfile.ZipFile(wheel_file_path, "r") as whl:
+                        if not all(
+                            _is_safe_member(extraction_base_path, n)
+                            for n in whl.namelist()
+                        ):
+                            self.logger.warning(
+                                f"Skipping {file_name}: unsafe paths in archive."
+                            )
+                            continue
                         # Extract plugin contents.
                         whl.extractall(extraction_base_path)
 
@@ -111,6 +125,23 @@ class APIHandler:
                     for command in command_manager._commands:
                         try:
                             commandData = read_commands_config()
+                            command.permissions = [
+                                migrate_permission(p) for p in command.permissions
+                            ]
+                            error = validate_command(
+                                {
+                                    "name": command.name,
+                                    "description": command.description,
+                                    "usages": command.usages,
+                                    "aliases": command.aliases,
+                                    "permissions": command.permissions,
+                                },
+                                commandData["commands"],
+                                BUILTIN_COMMANDS,
+                                original_name=command.name,
+                            )
+                            if error:
+                                raise ValueError(error)
                             if not command.name in commandData["commands"]:
                                 commandData["commands"][command.name] = {
                                     "description": command.description,
@@ -156,8 +187,7 @@ class APIHandler:
                         except Exception as e:
                             self.logger.error(f"Failed to register placeholder: {e}")
                 except Exception as e:
-                    pass
-                    # self.logger.error(f"Failed to process plugin {file_name}: {e}")
+                    self.logger.warning(f"Skipped {file_name}: {e}")
                 finally:
                     # Clean up directory
                     for root, dirs, files in os.walk(
@@ -168,5 +198,5 @@ class APIHandler:
                         for name in dirs:
                             os.rmdir(os.path.join(root, name))
         self.logger.info(
-            f"\n§9[EAC]§r §aSuccessful Registrations §8(§c{successes}§8):§r" + success
+            f"\n§9[CC]§r §aSuccessful Registrations §8(§c{successes}§8):§r" + success
         )

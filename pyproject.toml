@@ -3,19 +3,19 @@ requires = ["hatchling<=1.18.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "endstone_easyascommands"
-version = "0.2.0"
+name = "endstone_customscommands"
+version = "0.3.0"
 dependencies = []
 authors = [
     { name = "palm1" },
 ]
-description = "Endstone Commands Plugin for the EasyAs suite."
+description = "Create your own slash commands in-game for Endstone (based on EasyAsCommands by palm1)."
 readme = "README.md"
 license = { file = "LICENSE" }
-keywords = ["endstone", "easyas", "commands", "server"]
+keywords = ["endstone", "customscommands", "commands", "server"]
 
 [project.urls]
-Homepage = "https://github.com/palmmc/EasyAsCommands"
+Homepage = "https://github.com/CircuitCrafter2/CustomCommands"
 
 [project.entry-points."endstone"]
-easyascommands = "endstone_easyascommands:EasyAsCommands"
+customscommands = "endstone_customscommands:CustomsCommands"

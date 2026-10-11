@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from endstone._internal.endstone_python import (
     ActionForm,
     Dropdown,
@@ -15,7 +17,7 @@ class ActionFormResponse:
     Returns data about the player results from an action form.
     """
 
-    def __init__(self, canceled: bool, selection: str):
+    def __init__(self, canceled: bool, selection: int | None):
         self.canceled = canceled
         self.selection = selection
 
@@ -61,6 +63,7 @@ class ActionFormData:
 
     def __init__(self):
         self._form = ActionForm()
+        self._callback = None
 
     def body(self, body_text: str):
         """

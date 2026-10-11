@@ -1,0 +1,1679 @@
+diff --git a/README.md b/README.md
+index beeb86b..5452ce7 100644
+--- a/README.md
++++ b/README.md
+@@ -7,16 +7,22 @@
+ 
+ </div>
+ 
+-# EasyAsCommands
++# CustomsCommands
+ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you to setup your own slash commands without any programming!
+ 
+-## ⚠️ Experimental Integration Support
+-### As of Beta `0.2.0`+
+-> This plugin uses an experimental feature that discovers integrations in other plugins by **scanning their main scripts** for its API class.
+-> <br>If you find this feature invasive, I recommend you do not use this plugin.
+-> <br>If you would like to add EAC integration to your plugin, see the [API Documentation](/_for_developers/README.md).
++> Based on [EasyAsCommands](https://github.com/palmmc/EasyAsCommands) by palm1.
++
++## ⚠️ Integration Support
++> Automatic discovery of integrations (scanning other plugins' `.whl` files) is **disabled by default**
++> because it is invasive. Enable it with `"auto_discover_integrations": true` in the `settings` of
++> `command_manager.json` only if you trust your plugins.
++> <br>Plugins can instead register themselves explicitly, see the [API Documentation](/_for_developers/README.md).
+ 
+ # Installation
++> **Upgrading from EasyAsCommands?** Remove the old `endstone_easyascommands-*.whl` from your plugins folder first.
++> Your `config/command_manager.json` is reused, and permissions named `easyas.command.*` are automatically
++> converted to `customscommands.command.*`.
++
+ 1) Download the latest [release](../../releases).
+ 2) Drag and drop both files ending with `.whl` into your Endstone plugin folder.
+ 3) Restart or reload your server. Enjoy!
+@@ -24,6 +30,24 @@ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you
+ ### Demo
+ <img src="./images/mdemo.png?raw=true">
+ 
++# Settings
++Stored under `"settings"` in `config/command_manager.json`:
++
++**Setting**|**Default**|**Description**
++:-----:|:-----:|:-----:
++`allow_selectors`|`false`|Lets players pass target selectors (`@a`, `@e`...) as command arguments.
++`auto_discover_integrations`|`false`|Scans other plugins' `.whl` files for integrations (invasive).
++
++# Security
++Custom commands run on the **console**, so player input is validated before it is placed in a command:
++- Arguments can't contain quotes, backslashes, line breaks or other control characters, and are limited to 256 characters.
++- Target selectors (`@a`, `@e`...) are refused unless `allow_selectors` is enabled.
++- An argument containing spaces is only accepted when the placeholder is written between quotes in the command
++  (e.g. `say "{0}"`). `{player}` is quoted automatically when needed.
++- A placeholder can't be used as the command name itself (e.g. `{0}` alone).
++- A missing argument stops the whole command before anything is executed.
++- Names, aliases, usages and permissions are validated when saving a command, and every modification re-checks the manager permission.
++
+ # Features
+ - ## Manager UI
+   - Create, remove, and edit slash commands using a simple UI.
+@@ -31,12 +55,12 @@ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you
+   - Add functionality on command execution.
+ 
+ # Commands
+-- `/commands` - `easyas.command.manager`
+-- `/resetcommands` - `easyas.command.reset`
++- `/commands` - `customscommands.command.manager`
++- `/resetcommands` - `customscommands.command.reset`
+ 
+ # Tutorial
+ ### *Using In-Game UI*
+-1) With **operator** or the `easyas.command.manager` permission, run the `/commands` command.
++1) With **operator** or the `customscommands.command.manager` permission, run the `/commands` command.
+ 2) This is where you can add, remove, and edit existing commands.
+    - Next click 'Add Command'.
+ 3) Here you can configure all of the different attributes of your command.
+@@ -44,7 +68,7 @@ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you
+    - Try creating the following command:
+      - Set the name to '`star`'.
+      - Add a new usage '`/star`'.
+-     - Add the permission '`easyas.command.all`'.
++     - Add the permission '`customscommands.command.all`'.
+    - After that, scroll to the bottom and click **Functionality**.
+ 4) This is where you can make the command *do* something when it is executed. Let's do a simple example.
+    - Click 'Add Execution', select 'Command', and type '`give "{player}" nether_star 1`'.
+diff --git a/_for_developers/README.md b/_for_developers/README.md
+index 9f150ac..e2e2ebc 100644
+--- a/_for_developers/README.md
++++ b/_for_developers/README.md
+@@ -1,6 +1,16 @@
+ ***
+-# EasyAsCommands API
+-**EasyAsCommands** has its own API that developers can include in their plugins to integrate their plugin with EAC.
++# CustomsCommands API
++
++> **Recommended:** register your types explicitly instead of relying on automatic discovery (disabled by default):
++> ```python
++> cc = self.server.plugin_manager.get_plugin("customscommands")  # use the name shown in your plugin list
++> if cc is not None:
++>     cc.register_execution("my_type", my_execution)      # callback(player, content, args)
++>     cc.register_placeholder("my_id", my_placeholder)    # callback(player, args) -> str
++> ```
++> The `CommandManager` class below is only used by the legacy automatic discovery.
++
++**CustomsCommands** has its own API that developers can include in their plugins to integrate their plugin with CustomsCommands.
+ 
+ ***
+ ## Adding to Plugin
+@@ -25,7 +35,7 @@
+ 5) And you're done!
+ ***
+ # Usage
+-The API includes many useful implementations, especially for registering types to integrate your plugin into EAC.
++The API includes many useful implementations, especially for registering types to integrate your plugin into CustomsCommands.
+ 
+ Here is a list of all available methods and attributes that can be used:
+ # `class` CommandManager
+@@ -45,7 +55,7 @@ Parent class for command management.
+   - ### `def` register
+     > #### `name: str`, `description: str`, `usages: list[str]`, `permissions?: list[str]`, `aliases?: list[str]`, `functionality?: list[{type: str, content: str}]`
+     > 
+-    > Registers a slash command that can be managed by EasyAsCommands.
++    > Registers a slash command that can be managed by CustomsCommands.
+   ### `example.py`
+   ```python
+   ## Registering a Command ##
+@@ -57,7 +67,7 @@ Parent class for command management.
+                 "jellydonut",
+                 "This is a test command.",
+                 ["/jellydonut <count: int>"],
+-                ["easyas.command.all"],
++                ["customscommands.command.all"],
+                 ["jd"],
+                 [
+                     {
+diff --git a/_for_developers/eac_api.py b/_for_developers/eac_api.py
+index bedc97a..c107fa8 100644
+--- a/_for_developers/eac_api.py
++++ b/_for_developers/eac_api.py
+@@ -56,7 +56,7 @@ class EasyPlaceholder:
+ 
+ class CommandManager:
+     """
+-    The CommandManager class is an API for developers to easily manage and add functionality to **EasyAsCommands**.
++    The CommandManager class is an API for developers to easily manage and add functionality to **CustomsCommands**.
+ 
+     ### Example
+     ```python
+@@ -71,7 +71,7 @@ class CommandManager:
+                 "jellydonut",
+                 "This is a test command.",
+                 ["/jellydonut <count: int>"],
+-                ["easyas.command.all"],
++                ["customscommands.command.all"],
+                 ["jd"],
+                 [
+                     {
+@@ -124,12 +124,12 @@ class CommandManager:
+             name: str,
+             description: str,
+             usages: list[str],
+-            permissions: list[str] = ["easyas.command.op"],
++            permissions: list[str] = ["customscommands.command.op"],
+             aliases: list[str] = [],
+             functionality: list[SimpleFunctionality] = [],
+         ):
+             """
+-            Registers a slash command that can be managed by EasyAsCommands.
++            Registers a slash command that can be managed by CustomsCommands.
+             """
+             self.manager._commands.append(
+                 EasySlashCommand(
+diff --git a/_for_developers/example.py b/_for_developers/example.py
+index fda30d5..6fd4b0f 100644
+--- a/_for_developers/example.py
++++ b/_for_developers/example.py
+@@ -10,7 +10,7 @@ class EAC(CommandManager):
+             "jellydonut",
+             "This is a test command.",
+             ["/jellydonut <count: int>"],
+-            ["easyas.command.all"],
++            ["customscommands.command.all"],
+             ["jd"],
+             [
+                 {
+diff --git a/pyproject.toml b/pyproject.toml
+index d63c288..e215497 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -3,19 +3,19 @@ requires = ["hatchling<=1.18.0"]
+ build-backend = "hatchling.build"
+ 
+ [project]
+-name = "endstone_easyascommands"
+-version = "0.2.0"
++name = "endstone_customscommands"
++version = "0.3.0"
+ dependencies = []
+ authors = [
+     { name = "palm1" },
+ ]
+-description = "Endstone Commands Plugin for the EasyAs suite."
++description = "Create your own slash commands in-game for Endstone (based on EasyAsCommands by palm1)."
+ readme = "README.md"
+ license = { file = "LICENSE" }
+-keywords = ["endstone", "easyas", "commands", "server"]
++keywords = ["endstone", "customscommands", "commands", "server"]
+ 
+ [project.urls]
+-Homepage = "https://github.com/palmmc/EasyAsCommands"
++Homepage = "https://github.com/CircuitCrafter2/CustomCommands"
+ 
+ [project.entry-points."endstone"]
+-easyascommands = "endstone_easyascommands:EasyAsCommands"
+\ No newline at end of file
++customscommands = "endstone_customscommands:CustomsCommands"
+\ No newline at end of file
+diff --git a/src/endstone_easyascommands/API/integrations.py b/src/endstone_customscommands/API/integrations.py
+similarity index 79%
+rename from src/endstone_easyascommands/API/integrations.py
+rename to src/endstone_customscommands/API/integrations.py
+index 0ccb03e..e29077e 100644
+--- a/src/endstone_easyascommands/API/integrations.py
++++ b/src/endstone_customscommands/API/integrations.py
+@@ -4,7 +4,8 @@ import importlib.util
+ from endstone._internal.endstone_python import ColorFormat
+ from endstone.plugin import Plugin
+ from .types import ExecutionTypes, PlaceholderTypes
+-from ..Utils.utils import read_commands_config, write_commands_config
++from ..Utils.utils import BUILTIN_COMMANDS, read_commands_config, write_commands_config
++from ..Utils.security import migrate_permission, validate_command
+ 
+ 
+ ### API HANDLER ###
+@@ -12,18 +13,23 @@ from ..Utils.utils import read_commands_config, write_commands_config
+ # Define paths
+ plugins_file_path = os.path.abspath("./plugins/")
+ extraction_base_path = os.path.join(
+-    os.getcwd(), "plugins", ".processes", "EasyAsCommands"
++    os.getcwd(), "plugins", ".processes", "CustomsCommands"
+ )
+ 
+ 
++def _is_safe_member(base: str, member: str) -> bool:
++    """True if extracting `member` stays inside `base`."""
++    target = os.path.abspath(os.path.join(base, member))
++    return target == os.path.abspath(base) or target.startswith(
++        os.path.abspath(base) + os.sep
++    )
++
++
+ class APIHandler:
+     def discover_integrations(self: Plugin):
+         self.logger.info("§b§lDiscovering integrations...")
+ 
+         # Check if directory exists; if not, create it.
+-        extraction_base_path = os.path.join(
+-            os.getcwd(), "plugins", "processes", "EasyAsCommands"
+-        )
+         if not os.path.exists(extraction_base_path):
+             os.makedirs(extraction_base_path)
+ 
+@@ -37,6 +43,14 @@ class APIHandler:
+                     wheel_file_path = os.path.join(plugins_file_path, file_name)
+ 
+                     with zipfile.ZipFile(wheel_file_path, "r") as whl:
++                        if not all(
++                            _is_safe_member(extraction_base_path, n)
++                            for n in whl.namelist()
++                        ):
++                            self.logger.warning(
++                                f"Skipping {file_name}: unsafe paths in archive."
++                            )
++                            continue
+                         # Extract plugin contents.
+                         whl.extractall(extraction_base_path)
+ 
+@@ -111,6 +125,23 @@ class APIHandler:
+                     for command in command_manager._commands:
+                         try:
+                             commandData = read_commands_config()
++                            command.permissions = [
++                                migrate_permission(p) for p in command.permissions
++                            ]
++                            error = validate_command(
++                                {
++                                    "name": command.name,
++                                    "description": command.description,
++                                    "usages": command.usages,
++                                    "aliases": command.aliases,
++                                    "permissions": command.permissions,
++                                },
++                                commandData["commands"],
++                                BUILTIN_COMMANDS,
++                                original_name=command.name,
++                            )
++                            if error:
++                                raise ValueError(error)
+                             if not command.name in commandData["commands"]:
+                                 commandData["commands"][command.name] = {
+                                     "description": command.description,
+@@ -156,8 +187,7 @@ class APIHandler:
+                         except Exception as e:
+                             self.logger.error(f"Failed to register placeholder: {e}")
+                 except Exception as e:
+-                    pass
+-                    # self.logger.error(f"Failed to process plugin {file_name}: {e}")
++                    self.logger.warning(f"Skipped {file_name}: {e}")
+                 finally:
+                     # Clean up directory
+                     for root, dirs, files in os.walk(
+@@ -168,5 +198,5 @@ class APIHandler:
+                         for name in dirs:
+                             os.rmdir(os.path.join(root, name))
+         self.logger.info(
+-            f"\n§9[EAC]§r §aSuccessful Registrations §8(§c{successes}§8):§r" + success
++            f"\n§9[CC]§r §aSuccessful Registrations §8(§c{successes}§8):§r" + success
+         )
+diff --git a/src/endstone_easyascommands/API/types.py b/src/endstone_customscommands/API/types.py
+similarity index 51%
+rename from src/endstone_easyascommands/API/types.py
+rename to src/endstone_customscommands/API/types.py
+index 375da9e..4e0bf26 100644
+--- a/src/endstone_easyascommands/API/types.py
++++ b/src/endstone_customscommands/API/types.py
+@@ -1,9 +1,22 @@
++import types
++
+ from endstone._internal.endstone_python import Player
+ 
+ 
+ class ExecutionTypes:
+     executions = []
+ 
++    @staticmethod
++    def register(name: str, callback):
++        """Registers an execution type (callback(player, content, args))."""
++        if not isinstance(name, str) or not name or name == "command":
++            raise ValueError("Invalid execution type name.")
++        if name in ExecutionTypes.get_types():
++            raise ValueError(f"Execution type '{name}' is already registered.")
++        ExecutionTypes.executions.append(
++            types.SimpleNamespace(name=name, callback=callback)
++        )
++
+     @staticmethod
+     def get_types():
+         types = []
+@@ -24,6 +37,25 @@ class ExecutionTypes:
+ class PlaceholderTypes:
+     placeholders = []
+ 
++    @staticmethod
++    def register(identifier: str, callback):
++        """Registers a placeholder {identifier} (callback(player, args) -> str)."""
++        if (
++            not isinstance(identifier, str)
++            or not identifier
++            or identifier == "player"
++            or identifier.isdigit()
++            or identifier.startswith("score:")
++            or "{" in identifier
++            or "}" in identifier
++        ):
++            raise ValueError("Invalid placeholder identifier.")
++        if identifier in PlaceholderTypes.get_types():
++            raise ValueError(f"Placeholder '{identifier}' is already registered.")
++        PlaceholderTypes.placeholders.append(
++            types.SimpleNamespace(id=identifier, callback=callback)
++        )
++
+     @staticmethod
+     def get_types():
+         types = []
+diff --git a/src/endstone_easyascommands/Manage/add.py b/src/endstone_customscommands/Manage/add.py
+similarity index 83%
+rename from src/endstone_easyascommands/Manage/add.py
+rename to src/endstone_customscommands/Manage/add.py
+index 45c405e..25c1053 100644
+--- a/src/endstone_easyascommands/Manage/add.py
++++ b/src/endstone_customscommands/Manage/add.py
+@@ -9,8 +9,10 @@ from ..form_wrapper import (
+ )
+ from endstone._internal.endstone_python import Player
+ 
++from ..Utils.utils import error_custom
+ from ..Manage.edit import (
+     manage_aliases,
++    manage_functionality,
+     manage_permissions,
+     manage_usages,
+     set_command_description,
+@@ -26,6 +28,7 @@ def add_command(self: Plugin, player: Player, command):
+     form.button("Manage Usages")
+     form.button("Manage Aliases")
+     form.button("Manage Permissions")
++    form.button("§9Functionality")
+     form.button("Submit")
+ 
+     def submit(self: Plugin, player: Player, result: ActionFormResponse):
+@@ -42,6 +45,11 @@ def add_command(self: Plugin, player: Player, command):
+         elif result.selection == 4:
+             manage_permissions(self, player, command)
+         elif result.selection == 5:
++            if "name" not in command:
++                error_custom(player, "Set a name for the command first.")
++                return add_command(self, player, command)
++            manage_functionality(self, player, command)
++        elif result.selection == 6:
+             submit_command(self, player, command)
+ 
+     form.show(player).then(
+@@ -55,8 +63,8 @@ def confirm_exit_add_command(self: Plugin, player: Player, command):
+     form = MessageFormData()
+     form.title("Confirm Exit")
+     form.body("Are you sure you want to exit without saving?")
+-    form.button1("Submit")
+-    form.button2("Cancel")
++    form.button1("Yes, exit")
++    form.button2("No, keep editing")
+ 
+     def exit_add_command(
+         self: Plugin, player: Player, result: MessageFormResponse, command
+diff --git a/src/endstone_easyascommands/Manage/edit.py b/src/endstone_customscommands/Manage/edit.py
+similarity index 91%
+rename from src/endstone_easyascommands/Manage/edit.py
+rename to src/endstone_customscommands/Manage/edit.py
+index 7202303..3448259 100644
+--- a/src/endstone_easyascommands/Manage/edit.py
++++ b/src/endstone_customscommands/Manage/edit.py
+@@ -1,5 +1,10 @@
+ from .submit import submit_command
+-from ..Utils.utils import read_commands_config, strip_color_codes, write_commands_config
++from ..Utils.utils import (
++    read_commands_config,
++    require_manager,
++    strip_color_codes,
++    write_commands_config,
++)
+ 
+ from endstone.plugin import Plugin
+ from ..form_wrapper import (
+@@ -54,8 +59,8 @@ def confirm_exit_edit_command(self: Plugin, player: Player, command):
+     form = MessageFormData()
+     form.title("Confirm Exit")
+     form.body("Are you sure you want to exit without saving?")
+-    form.button1("Submit")
+-    form.button2("Cancel")
++    form.button1("Yes, exit")
++    form.button2("No, keep editing")
+ 
+     def exit_edit_command(
+         self: Plugin, player: Player, result: MessageFormResponse, command
+@@ -102,7 +107,7 @@ def manage_permissions(self: Plugin, player: Player, command):
+ def add_permission(self: Plugin, player: Player, command):
+     form = ModalFormData()
+     form.title("Add Permission")
+-    form.text_field("Permission", "easyas.command.all", "easyas.command.all")
++    form.text_field("Permission", "customscommands.command.all", "customscommands.command.all")
+ 
+     def submit(self: Plugin, player: Player, result: ModalFormResponse, command):
+         if result.canceled:
+@@ -374,16 +379,21 @@ def set_command_name(self: Plugin, player: Player, command):
+     )
+ 
+ 
++def functions_key(command):
++    """Key under which the command's functionality is stored in the JSON."""
++    return command.get("_original_name") or command["name"]
++
++
+ def manage_functionality(self: Plugin, player: Player, command):
+     form = ActionFormData()
+     form.title("Manage Functionality")
+-    form.body("Functionality determines what happens what your command is executed.")
++    form.body("Functionality determines what happens when your command is executed.")
+     form.button("Add Execution", "textures/ui/smithing-table-plus.png")
+     form.button("Remove Execution", "textures/ui/dark_minus.png")
+     commandData = read_commands_config()
+     functions = commandData["functions"]
+-    if command["name"] in functions:
+-        for func in functions[command["name"]]:
++    if functions_key(command) in functions:
++        for func in functions[functions_key(command)]:
+             line = func["type"] + ": " + func["content"]
+             form.button(strip_color_codes(line))
+ 
+@@ -426,9 +436,12 @@ def select_functionality(self: Plugin, player: Player, command):
+ 
+ 
+ def add_functionality(self: Plugin, player: Player, command, type: int):
++    # Index 0 is the built-in "command" execution; the others come from integrations.
++    execution_types = ["command"] + ExecutionTypes.get_types()
++    type_name = execution_types[type]
+     form = ModalFormData()
+     form.title("Add Execution")
+-    if type == 0:
++    if type_name == "command":
+         form.text_field(
+             "Enter a command for the server to run when executed.",
+             "say Hello, {0} {1}!",
+@@ -439,10 +452,13 @@ def add_functionality(self: Plugin, player: Player, command, type: int):
+     def submit(self: Plugin, player: Player, result: ModalFormResponse, command, type):
+         if result.canceled:
+             return manage_functionality(self, player, command)
++        if not require_manager(player):
++            return
+         commandData = read_commands_config()
+-        if command["name"] not in commandData["functions"]:
+-            commandData["functions"][command["name"]] = []
+-        commandData["functions"][command["name"]].append(
++        key = functions_key(command)
++        if key not in commandData["functions"]:
++            commandData["functions"][key] = []
++        commandData["functions"][key].append(
+             {"type": type, "content": result.formValues[0]}
+         )
+         write_commands_config(commandData)
+@@ -450,7 +466,7 @@ def add_functionality(self: Plugin, player: Player, command, type: int):
+ 
+     form.show(player).then(
+         lambda player=Player, response=ModalFormResponse: submit(
+-            self, player, response, command, ExecutionTypes.get_types()[type - 1]
++            self, player, response, command, type_name
+         )
+     )
+ 
+@@ -461,17 +477,19 @@ def remove_functionality(self: Plugin, player: Player, command):
+     form.body("Click an execution to remove it.")
+     commandData = read_commands_config()
+     functions = commandData["functions"]
+-    if command["name"] not in functions:
++    if functions_key(command) not in functions:
+         return manage_functionality(self, player, command)
+-    for func in functions[command["name"]]:
++    for func in functions[functions_key(command)]:
+         line = func["type"] + ": " + func["content"]
+         form.button(strip_color_codes(line))
+ 
+     def submit(self: Plugin, player: Player, result: ActionFormResponse, command):
+         if result.canceled:
+             return manage_functionality(self, player, command)
++        if not require_manager(player):
++            return
+         commandData = read_commands_config()
+-        commandData["functions"][command["name"]].pop(result.selection)
++        commandData["functions"][functions_key(command)].pop(result.selection)
+         write_commands_config(commandData)
+         manage_functionality(self, player, command)
+ 
+@@ -484,7 +502,7 @@ def remove_functionality(self: Plugin, player: Player, command):
+ 
+ def edit_functionality(self: Plugin, player: Player, command, index):
+     commandData = read_commands_config()
+-    functions = commandData["functions"][command["name"]]
++    functions = commandData["functions"][functions_key(command)]
+     form = ModalFormData()
+     form.title("Edit Execution")
+     if functions[index]["type"] == "command":
+@@ -503,7 +521,9 @@ def edit_functionality(self: Plugin, player: Player, command, index):
+     def submit(self: Plugin, player: Player, result: ModalFormResponse, command, index):
+         if result.canceled:
+             return manage_functionality(self, player, command)
+-        commandData["functions"][command["name"]][index] = {
++        if not require_manager(player):
++            return
++        commandData["functions"][functions_key(command)][index] = {
+             "type": functions[index]["type"],
+             "content": result.formValues[0],
+         }
+diff --git a/src/endstone_easyascommands/Manage/submit.py b/src/endstone_customscommands/Manage/submit.py
+similarity index 57%
+rename from src/endstone_easyascommands/Manage/submit.py
+rename to src/endstone_customscommands/Manage/submit.py
+index 90fba83..98c20e8 100644
+--- a/src/endstone_easyascommands/Manage/submit.py
++++ b/src/endstone_customscommands/Manage/submit.py
+@@ -1,14 +1,19 @@
+ from endstone._internal.endstone_python import Player
+ from endstone.plugin import Plugin
+ from ..Utils.utils import (
++    BUILTIN_COMMANDS,
+     read_commands_config,
+     write_commands_config,
+     send_custom,
+     error_custom,
++    require_manager,
+ )
++from ..Utils.security import validate_command
+ 
+ 
+ def submit_command(self: Plugin, player: Player, command):
++    if not require_manager(player):
++        return
+     if "name" not in command:
+         error_custom(player, "Incomplete command: Property '§4name§c' is missing.")
+         return
+@@ -25,7 +30,31 @@ def submit_command(self: Plugin, player: Player, command):
+             player, "Incomplete command: Property '§4permissions§c' is missing."
+         )
+         return
++    command["name"] = str(command["name"]).strip().lstrip("/")
++    if not command["name"]:
++        error_custom(player, "Incomplete command: Property '§4name§c' is empty.")
++        return
++    # A command without any usage can't be registered: default to "/<name>".
++    if not command["usages"]:
++        command["usages"] = ["/" + command["name"]]
++
+     commandData = read_commands_config()
++    old_name = command.get("_original_name")
++    error = validate_command(
++        command, commandData["commands"], BUILTIN_COMMANDS, original_name=old_name
++    )
++    if error:
++        error_custom(player, error)
++        return
++
++    # Renaming: remove the old entry and move its functionality to the new name.
++    if old_name and old_name != command["name"]:
++        commandData["commands"].pop(old_name, None)
++        old_functions = commandData["functions"].pop(old_name, [])
++        if old_functions:
++            commandData["functions"][command["name"]] = old_functions + commandData[
++                "functions"
++            ].get(command["name"], [])
+     commandData["commands"][command["name"]] = {
+         "description": command["description"],
+         "usages": command["usages"],
+diff --git a/src/endstone_customscommands/Utils/security.py b/src/endstone_customscommands/Utils/security.py
+new file mode 100644
+index 0000000..4d9dd49
+--- /dev/null
++++ b/src/endstone_customscommands/Utils/security.py
+@@ -0,0 +1,205 @@
++"""
++Input validation and safe command rendering.
++
++Custom commands run on the *console* (full privileges). The values a player types
++(`{0}`, `{1}`, ...) and values coming from third-party placeholders must therefore never be
++able to change the structure of the command that gets executed.
++"""
++
++from __future__ import annotations
++
++import re
++
++### CONSTANTS ###
++
++PERMISSION_PREFIX = "customscommands.command."
++LEGACY_PERMISSION_PREFIX = "easyas.command."  # permissions used before the rename
++
++NAME_RE = re.compile(r"^[A-Za-z0-9_]{1,32}$")
++PERMISSION_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,128}$")
++PLACEHOLDER_RE = re.compile(r"\{([^{}]*)\}")
++SELECTOR_RE = re.compile(r"(?:^|\s)@")
++WHITESPACE_RE = re.compile(r"\s")
++
++MAX_VALUE_LENGTH = 256
++MAX_DESCRIPTION_LENGTH = 256
++MAX_USAGE_LENGTH = 256
++
++
++class InputError(ValueError):
++    """Raised when an input is refused. The message is safe to show to the player."""
++
++
++### GENERIC HELPERS ###
++
++
++def has_control_chars(text: str) -> bool:
++    return any(ord(c) < 32 or ord(c) == 127 for c in text)
++
++
++def migrate_permission(permission: str) -> str:
++    """Converts a permission from the old `easyas.command.*` namespace to the new one."""
++    if isinstance(permission, str) and permission.startswith(LEGACY_PERMISSION_PREFIX):
++        return PERMISSION_PREFIX + permission[len(LEGACY_PERMISSION_PREFIX) :]
++    return permission
++
++
++### ADMIN SIDE: VALIDATING A COMMAND DEFINITION ###
++
++
++def validate_command(
++    command: dict, existing: dict, builtin, original_name: str | None = None
++) -> str | None:
++    """
++    Checks a command definition (name, description, usages, aliases, permissions).
++
++    :param command: The command being saved.
++    :param existing: The currently stored commands ({name: definition}).
++    :param builtin: Names reserved by the plugin itself.
++    :param original_name: Name the command had before editing (allows keeping/renaming it).
++    :return: An error message, or None if the command is valid.
++    """
++    name = command.get("name")
++    if not isinstance(name, str) or not NAME_RE.match(name):
++        return (
++            "Invalid name: use 1-32 letters, digits or underscores "
++            "(no spaces, no '/')."
++        )
++    aliases = command.get("aliases", [])
++    if name.lower() in (b.lower() for b in builtin):
++        return f"'{name}' is reserved by the plugin."
++
++    # Names and aliases already used by other commands.
++    taken = set()
++    for other_name, other in existing.items():
++        if other_name == original_name:
++            continue
++        taken.add(other_name.lower())
++        for alias in other.get("aliases", []):
++            taken.add(str(alias).lower())
++    for builtin_name in builtin:
++        taken.add(builtin_name.lower())
++
++    if name.lower() in taken:
++        return f"A command named '{name}' already exists."
++
++    seen = {name.lower()}
++    for alias in aliases:
++        if not isinstance(alias, str) or not NAME_RE.match(alias):
++            return f"Invalid alias '{alias}': use 1-32 letters, digits or underscores."
++        if alias.lower() in taken or alias.lower() in seen:
++            return f"The alias '{alias}' is already in use."
++        seen.add(alias.lower())
++
++    description = command.get("description", "")
++    if (
++        not isinstance(description, str)
++        or has_control_chars(description)
++        or len(description) > MAX_DESCRIPTION_LENGTH
++    ):
++        return "Invalid description (no line breaks, 256 characters max)."
++
++    valid_names = {name.lower()} | {a.lower() for a in aliases}
++    for usage in command.get("usages", []):
++        if (
++            not isinstance(usage, str)
++            or not usage.startswith("/")
++            or has_control_chars(usage)
++            or len(usage) > MAX_USAGE_LENGTH
++        ):
++            return f"Invalid usage '{usage}': it must start with '/' and stay on one line."
++        first = usage[1:].split(None, 1)[0].lower() if usage[1:].strip() else ""
++        if first not in valid_names:
++            return (
++                f"Invalid usage '{usage}': it must start with '/{name}' "
++                "(or one of the aliases)."
++            )
++
++    for permission in command.get("permissions", []):
++        if not isinstance(permission, str) or not PERMISSION_RE.match(permission):
++            return (
++                f"Invalid permission '{permission}': use letters, digits, "
++                "'_', '-' and '.' only."
++            )
++    return None
++
++
++### PLAYER SIDE: RENDERING A COMMAND TEMPLATE SAFELY ###
++
++
++def _check_template_start(template: str):
++    """A placeholder must never be able to supply the command name itself."""
++    stripped = template.lstrip().lstrip("/").lstrip()
++    first = stripped.split(None, 1)[0] if stripped else ""
++    if "{" in first:
++        raise InputError(
++            "This command is misconfigured: a placeholder can't be used as the command name."
++        )
++
++
++def _sanitize(value: str, kind: str, key: str, in_quotes: bool, allow_selectors: bool):
++    if kind == "placeholder":
++        label = f"'{key}'"
++    elif kind == "argument":
++        label = f"#{int(key) + 1}"
++    else:
++        label = "name"
++    if len(value) > MAX_VALUE_LENGTH:
++        raise InputError(f"Argument {label} is too long ({MAX_VALUE_LENGTH} characters max).")
++    if has_control_chars(value):
++        raise InputError(f"Argument {label} contains forbidden control characters.")
++    if '"' in value or "\\" in value:
++        raise InputError(f"Argument {label} can't contain quotes or backslashes.")
++    if not allow_selectors and SELECTOR_RE.search(value):
++        raise InputError(f"Argument {label} can't contain target selectors (@).")
++    if WHITESPACE_RE.search(value) and not in_quotes:
++        if kind == "player":
++            return f'"{value}"'  # e.g. gamertags with spaces
++        raise InputError(
++            f"Argument {label} can't contain spaces here "
++            "(the command author must put the placeholder between quotes)."
++        )
++    return value
++
++
++def render_line(
++    template: str,
++    player_name: str,
++    args: list,
++    custom: dict,
++    allow_selectors: bool = False,
++    strict: bool = True,
++) -> str:
++    """
++    Replaces {player}, {0}, {1}... and custom placeholders in a single pass.
++
++    Values are never re-scanned for placeholders. In strict mode (used for server
++    commands) every value is validated so it can't alter the command structure.
++
++    :param custom: {placeholder id: zero-argument callable returning its value}
++    :raises InputError: If a value is refused (strict mode only).
++    """
++    if strict:
++        _check_template_start(template)
++
++    def replace(match: re.Match) -> str:
++        key = match.group(1)
++        in_quotes = template.count('"', 0, match.start()) % 2 == 1
++        if key == "player":
++            value, kind = player_name, "player"
++        elif key.isdigit():
++            index = int(key)
++            if index >= len(args):
++                if strict:
++                    raise InputError(f"Missing argument #{index + 1}.")
++                return match.group(0)
++            value, kind = str(args[index]), "argument"
++        elif key in custom:
++            value, kind = str(custom[key]()), "placeholder"
++        else:
++            return match.group(0)
++        if not strict:
++            return value
++        return _sanitize(value, kind, key, in_quotes, allow_selectors)
++
++    return PLACEHOLDER_RE.sub(replace, template)
+diff --git a/src/endstone_customscommands/Utils/utils.py b/src/endstone_customscommands/Utils/utils.py
+new file mode 100644
+index 0000000..3288181
+--- /dev/null
++++ b/src/endstone_customscommands/Utils/utils.py
+@@ -0,0 +1,173 @@
++### CHAT CONFIGURATION ###
++
++import copy
++import json
++import os
++import re
++import shutil
++from endstone._internal.endstone_python import Player
++from endstone.plugin import Plugin
++from .security import migrate_permission, PERMISSION_PREFIX
++
++
++prefix = "§l§f[§aCustoms§6Commands§f]§r >> "
++
++# Commands provided by the plugin itself (not stored in the JSON, not editable in the UI).
++BUILTIN_COMMANDS = ("commands", "resetcommands")
++
++MANAGER_PERMISSION = PERMISSION_PREFIX + "manager"
++
++# Settings stored in the JSON file ("settings" key). Edit them in the file, not in the UI.
++DEFAULT_SETTINGS = {
++    # Allow players to pass target selectors (@a, @e, ...) as command arguments.
++    "allow_selectors": False,
++    # Scan other plugins' .whl files for integrations (invasive, off by default).
++    # The recommended way is for plugins to call register_execution/register_placeholder.
++    "auto_discover_integrations": False,
++}
++
++
++def send_custom(player: Player, message: str):
++    player.send_message(prefix + message)
++
++
++def error_custom(player: Player, message: str):
++    player.send_message(prefix + "§cError: " + message)
++
++
++def require_manager(player: Player) -> bool:
++    """Defensive permission check for every action that modifies the configuration."""
++    if player.has_permission(MANAGER_PERMISSION):
++        return True
++    error_custom(player, "You don't have permission to manage commands.")
++    return False
++
++
++### DEFAULT COMMAND DATA CONFIGURATION ###
++
++default_data = {
++    "settings": dict(DEFAULT_SETTINGS),
++    "commands": {
++        "helloworld": {
++            "description": "Example command.",
++            "usages": ["/helloworld <message: str> <amount: int>"],
++            "aliases": ["hello", "hi"],
++            "permissions": ["customscommands.command.all"],
++        }
++    },
++    "functions": {
++        "helloworld": [
++            {"type": "command", "content": "say Hello, {0}!"},
++            {"type": "command", "content": 'give "{player}" diamond {1}'},
++        ]
++    },
++}
++
++### COMMAND CONFIGURATION MANAGEMENT ###
++
++# Define the path to the JSON file
++json_file_path = os.path.abspath("./config/command_manager.json")
++
++
++class logger:
++    def info(str: str):
++        print(str)
++
++    def error(str: str):
++        print(str)
++
++
++def _normalize(data):
++    """Makes sure the mandatory keys exist. Returns (data, changed)."""
++    changed = False
++    if not isinstance(data, dict):
++        data, changed = {}, True
++    for key in ("commands", "functions"):
++        if not isinstance(data.get(key), dict):
++            data[key], changed = {}, True
++    if not isinstance(data.get("settings"), dict):
++        data["settings"], changed = {}, True
++    for key, value in DEFAULT_SETTINGS.items():
++        if key not in data["settings"]:
++            data["settings"][key], changed = value, True
++    # Permissions from before the rename (easyas.command.*) are migrated.
++    for command in data["commands"].values():
++        permissions = command.get("permissions", [])
++        migrated = [migrate_permission(p) for p in permissions]
++        if migrated != permissions:
++            command["permissions"], changed = migrated, True
++    return data, changed
++
++
++# Function to read from the JSON file
++def read_commands_config():
++    try:
++        with open(json_file_path, "r") as file:
++            data = json.load(file)
++        data, changed = _normalize(data)
++        if changed:
++            write_commands_config(data)
++        return data
++    except FileNotFoundError:
++        logger.error(
++            f"Error: Missing commands configuration file, generating a new one."
++        )
++        data = copy.deepcopy(default_data)
++        write_commands_config(data)
++        return data
++    except json.JSONDecodeError:
++        logger.error(f"Error: Failed to decode JSON from {json_file_path}.")
++        # Keep the broken file so the admin can fix it instead of losing it.
++        try:
++            shutil.copyfile(json_file_path, json_file_path + ".bak")
++            logger.error(f"A copy of the invalid file was saved as {json_file_path}.bak")
++        except OSError:
++            pass
++        return copy.deepcopy(default_data)
++
++
++# Function to write to the JSON file
++def write_commands_config(data):
++    try:
++        os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
++        with open(json_file_path, "w") as file:
++            json.dump(data, file, indent=4)
++    except IOError as e:
++        logger.error(f"Error: Failed to write to {json_file_path}\n{e}")
++
++
++def edit_commands_config(key, value):
++    if not isinstance(key, str):
++        logger.error("Error: Invalid key access in commands config.")
++        return
++    config = read_commands_config()
++    config[key] = value
++    write_commands_config(config)
++
++
++def reset_commands(self: Plugin, player: Player):
++    if not require_manager(player):
++        return
++    new_data = copy.deepcopy(default_data)
++    new_data["settings"] = read_commands_config()["settings"]  # keep the admin's settings
++    write_commands_config(new_data)
++    self.logger.info("Commands configuration has been reset to default.")
++    send_custom(
++        player,
++        f"§cReset Complete!\n§eServer has been reloaded successfully!",
++    )
++    try:
++        self.server.reload()
++    except Exception as e:
++        error_custom(player, f"Failed to reload server: {e}")
++        return
++
++
++### EXTRA UTILITIES ###
++
++
++def strip_color_codes(text: str) -> str:
++    # Regular expression to match Minecraft color codes
++    color_code_pattern = re.compile(r"§[0-9a-fk-or]")
++    # Substitute the color codes with an empty string
++    return color_code_pattern.sub("", text)
+diff --git a/src/endstone_customscommands/__init__.py b/src/endstone_customscommands/__init__.py
+new file mode 100644
+index 0000000..b9dd4dc
+--- /dev/null
++++ b/src/endstone_customscommands/__init__.py
+@@ -0,0 +1,5 @@
++from endstone_customscommands.customscommands import CustomsCommands
++
++__all__ = [
++    "CustomsCommands",
++]
+diff --git a/src/endstone_customscommands/customscommands.py b/src/endstone_customscommands/customscommands.py
+new file mode 100644
+index 0000000..863e40a
+--- /dev/null
++++ b/src/endstone_customscommands/customscommands.py
+@@ -0,0 +1,175 @@
++import typing
++
++import json
++from .manager import command_manager
++from .Utils.utils import read_commands_config, error_custom, reset_commands, send_custom
++from .Utils.security import InputError, render_line
++from endstone._internal.endstone_python import (
++    ColorFormat,
++    Player,
++)
++from endstone.command import Command, CommandSender
++from endstone.event import event_handler
++from endstone.plugin import Plugin
++from .API.integrations import APIHandler
++from .API.types import ExecutionTypes, PlaceholderTypes
++import re
++
++
++class CustomsCommands(Plugin):
++    prefix = "CustomsCommands"
++    api_version = "0.5"
++    load = "POSTWORLD"
++
++    # Commands declared to Endstone: the ones stored in the JSON + the mandatory ones.
++    # (The mandatory commands are only added here, never written to the JSON file.)
++    commands = {
++        **read_commands_config()["commands"],
++        "commands": {
++            "description": "Opens command manager.",
++            "usages": ["/commands"],
++            "aliases": ["cmds", "cmdmanager", "commandmanager"],
++            "permissions": ["customscommands.command.manager"],
++        },
++        "resetcommands": {
++            "description": "Resets all CustomsCommands commands.",
++            "usages": ["/resetcommands"],
++            "aliases": ["resetcmds"],
++            "permissions": ["customscommands.command.reset"],
++        },
++    }
++
++    permissions = {
++        "customscommands.command.manager": {
++            "description": "Command manager permission.",
++            "default": "op",
++        },
++        "customscommands.command.reset": {
++            "description": "Reset commands permission.",
++            "default": "op",
++        },
++        "customscommands.command.all": {
++            "description": "All players can use this.",
++            "default": True,
++        },
++        "customscommands.command.op": {
++            "description": "Only operators can use this.",
++            "default": "op",
++        },
++    }
++
++    def on_enable(self) -> None:
++        self.register_events(self)
++
++    def on_load(self):
++        self.logger.info(
++            f"\n> {ColorFormat.DARK_BLUE}{ColorFormat.BOLD}Welcome to CustomsCommands!{ColorFormat.RESET} (based on EasyAsCommands by palm1)\n> {ColorFormat.YELLOW}API Version: {self.api_version}{ColorFormat.RESET}\n> {ColorFormat.LIGHT_PURPLE}For help and updates, visit [ {ColorFormat.BLUE}https://github.com/CircuitCrafter2/CustomCommands {ColorFormat.LIGHT_PURPLE}]{ColorFormat.RESET}"
++        )
++        if read_commands_config()["settings"]["auto_discover_integrations"]:
++            APIHandler.discover_integrations(self)
++        else:
++            self.logger.info(
++                "Automatic integration discovery is disabled "
++                "(settings.auto_discover_integrations)."
++            )
++
++    ### Public API for other plugins ###
++    # Usage: plugin = server.plugin_manager.get_plugin("customscommands")
++    #        plugin.register_execution("my_type", callback)
++
++    def register_execution(self, name: str, callback) -> None:
++        """Registers an execution type. callback(player, content, args)."""
++        ExecutionTypes.register(name, callback)
++
++    def register_placeholder(self, identifier: str, callback) -> None:
++        """Registers a placeholder {identifier}. callback(player, args) -> str."""
++        PlaceholderTypes.register(identifier, callback)
++
++    def on_command(self, sender: CommandSender, command: Command, args: list[str]):
++        # You can also handle commands here instead of setting an executor in on_enable if you prefer
++        server = self.server
++        if not (isinstance(sender, Player)):
++            server.logger.info("Only players can use this command.")
++            return
++        player = sender
++        if command.name == "commands":
++            command_manager(self, player)
++            return
++        elif command.name == "resetcommands":
++            reset_commands(self, player)
++            return
++        functions = read_commands_config()["functions"]
++        if command.name not in functions or len(functions[command.name]) == 0:
++            send_custom(
++                player,
++                "§8This command doesn't have any functionality yet.\n§9Add it in the command manager!",
++            )
++            return
++        function = functions[command.name]
++        settings = read_commands_config()["settings"]
++        custom = {
++            pid: (lambda pid=pid: PlaceholderTypes.get_placeholder(pid)(player, args))
++            for pid in PlaceholderTypes.get_types()
++        }
++
++        # 1) Render every line first: if an argument is refused, nothing is executed.
++        rendered = []
++        try:
++            for func in function:
++                is_server_command = func["type"] == "command"
++                line = self.replace_score_placeholders(player, func["content"])
++                line = render_line(
++                    line,
++                    player.name,
++                    args,
++                    custom,
++                    allow_selectors=settings["allow_selectors"],
++                    strict=is_server_command,
++                )
++                rendered.append((func["type"], line))
++        except InputError as e:
++            error_custom(player, str(e))
++            return
++        except Exception as e:
++            server.logger.error(f"Error: {e}")
++            error_custom(
++                player,
++                f"An error occurred while executing the command.\n§4Please report this to an admin.",
++            )
++            return
++
++        # 2) Execute.
++        for func_type, line in rendered:
++            try:
++                if func_type == "command":
++                    server.dispatch_command(server.command_sender, line)
++                else:
++                    execution = ExecutionTypes.get_execution(func_type)
++                    if execution is None:
++                        raise ValueError(f"Unknown execution type '{func_type}'")
++                    execution(player, line, args)
++            except Exception as e:
++                server.logger.error(f"Error: {e}")
++                error_custom(
++                    player,
++                    f"An error occurred while executing the command.\n§4Please report this to an admin.",
++                )
++
++    def replace_score_placeholders(self, player: Player, string: str):
++        server = self.server
++        placeholders = re.findall(r"\{(.*?)\}", string)
++        for placeholder in placeholders:
++            if placeholder.startswith("score:"):
++                objective_name = placeholder.split(":", 1)[1]
++                objective = server.scoreboard.get_objective(objective_name)
++                if objective is None:
++                    self.logger.warning(
++                        f"Scoreboard objective '{objective_name}' does not exist."
++                    )
++                    continue
++                value = objective.get_score(player).value
++                string = re.sub(
++                    r"\{" + re.escape(placeholder) + r"\}", str(value), string
++                )
++
++        return string
+diff --git a/src/endstone_easyascommands/form_wrapper.py b/src/endstone_customscommands/form_wrapper.py
+similarity index 98%
+rename from src/endstone_easyascommands/form_wrapper.py
+rename to src/endstone_customscommands/form_wrapper.py
+index 6800ff2..888bebb 100644
+--- a/src/endstone_easyascommands/form_wrapper.py
++++ b/src/endstone_customscommands/form_wrapper.py
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from endstone._internal.endstone_python import (
+     ActionForm,
+     Dropdown,
+@@ -15,7 +17,7 @@ class ActionFormResponse:
+     Returns data about the player results from an action form.
+     """
+ 
+-    def __init__(self, canceled: bool, selection: str):
++    def __init__(self, canceled: bool, selection: int | None):
+         self.canceled = canceled
+         self.selection = selection
+ 
+@@ -61,6 +63,7 @@ class ActionFormData:
+ 
+     def __init__(self):
+         self._form = ActionForm()
++        self._callback = None
+ 
+     def body(self, body_text: str):
+         """
+diff --git a/src/endstone_easyascommands/manager.py b/src/endstone_customscommands/manager.py
+similarity index 51%
+rename from src/endstone_easyascommands/manager.py
+rename to src/endstone_customscommands/manager.py
+index 2ee0627..9845812 100644
+--- a/src/endstone_easyascommands/manager.py
++++ b/src/endstone_customscommands/manager.py
+@@ -12,23 +12,42 @@ from .form_wrapper import (
+ )
+ from .Manage.add import add_command
+ from .Manage.edit import edit_command
+-from .Utils.utils import read_commands_config, write_commands_config, send_custom
++from .Utils.utils import (
++    BUILTIN_COMMANDS,
++    read_commands_config,
++    write_commands_config,
++    send_custom,
++    error_custom,
++    require_manager,
++)
+ 
+ from endstone.plugin import Plugin
+ 
+ ### COMMAND MANAGER FUNCTIONALITY ###
+ 
+-commandData = read_commands_config()
++
++def editable_commands(commandData):
++    """Commands shown in the manager (the plugin's own commands are hidden)."""
++    return {
++        name: cmd
++        for name, cmd in commandData["commands"].items()
++        if name not in BUILTIN_COMMANDS
++    }
+ 
+ 
+ def command_manager(self: Plugin, player: Player):
++    if not require_manager(player):
++        return
++    commandData = read_commands_config()
++    commands = editable_commands(commandData)
+     form = ActionFormData()
+     form.title("Command Manager")
+     form.body("Click a command to edit it.")
+     form.button("Add Command", "textures/ui/smithing-table-plus.png")
+     form.button("Remove Command", "textures/ui/dark_minus.png")
+-    for command_name in commandData["commands"].keys():
+-        command = commandData["commands"][command_name]
++    names = list(commands.keys())
++    for command_name in names:
++        command = commands[command_name]
+         form.button(
+             f"{command_name}\n{command['description']}",
+             "textures/ui/user_icon_white.png",
+@@ -42,18 +61,19 @@ def command_manager(self: Plugin, player: Player):
+         elif result.selection == 1:
+             remove_command(self, player)
+         else:
+-            commands = commandData["commands"]
+-            cmdName = list(commands.keys())[result.selection - 2]
++            cmdName = names[result.selection - 2]
+             command = commands[cmdName]
++            # Copy the lists so that cancelling an edit doesn't alter the stored data.
+             edit_command(
+                 self,
+                 player,
+                 {
+                     "name": cmdName,
++                    "_original_name": cmdName,
+                     "description": command["description"],
+-                    "usages": command["usages"],
+-                    "aliases": command["aliases"],
+-                    "permissions": command["permissions"],
++                    "usages": list(command["usages"]),
++                    "aliases": list(command["aliases"]),
++                    "permissions": list(command["permissions"]),
+                 },
+             )
+ 
+@@ -65,11 +85,14 @@ def command_manager(self: Plugin, player: Player):
+ 
+ 
+ def remove_command(self: Plugin, player: Player):
++    commandData = read_commands_config()
++    commands = editable_commands(commandData)
++    names = list(commands.keys())
+     form = ActionFormData()
+     form.title("Remove Command")
+     form.body("Click a command to remove it.")
+-    for command_name in commandData["commands"].keys():
+-        command = commandData["commands"][command_name]
++    for command_name in names:
++        command = commands[command_name]
+         form.button(
+             f"{command_name}\n§7{command['description']}",
+             "textures/ui/user_icon_white.png",
+@@ -78,9 +101,7 @@ def remove_command(self: Plugin, player: Player):
+     def submit(self: Plugin, player: Player, result: ActionFormResponse):
+         if result.canceled:
+             return
+-        commands = commandData["commands"]
+-        command = commands[list(commands.keys())[result.selection - 1]]
+-        confirm_remove_command(self, player, command)
++        confirm_remove_command(self, player, names[result.selection])
+ 
+     form.show(player).then(
+         lambda player=Player, response=ActionFormResponse: submit(
+@@ -89,28 +110,34 @@ def remove_command(self: Plugin, player: Player):
+     )
+ 
+ 
+-def confirm_remove_command(self: Plugin, player: Player, command):
++def confirm_remove_command(self: Plugin, player: Player, command_name: str):
+     form = MessageFormData()
+     form.title("Confirm Removal")
+-    form.body(f"Are you sure you want to remove '{command['name']}'?")
++    form.body(f"Are you sure you want to remove '{command_name}'?")
+     form.button1("Yes")
+     form.button2("No")
+ 
+-    def remove_command(
+-        self: Plugin, player: Player, result: MessageFormResponse, command
+-    ):
+-        if result.canceled or result.selection == 2:
++    def do_remove(self: Plugin, player: Player, result: MessageFormResponse, name):
++        # button1 ("Yes") -> 0, button2 ("No") -> 1
++        if result.canceled or result.selection != 0:
+             return
+-        else:
+-            commandData["commands"].pop(command["name"])
+-            write_commands_config(commandData)
+-            send_custom(
+-                player,
+-                f"§cCommand §f'§6{command['name']}§f' §chas been removed.\n§eAttempting to reload server...",
+-            )
++        if not require_manager(player):
++            return
++        commandData = read_commands_config()
++        commandData["commands"].pop(name, None)
++        commandData["functions"].pop(name, None)
++        write_commands_config(commandData)
++        send_custom(
++            player,
++            f"§cCommand §f'§6{name}§f' §chas been removed.\n§eAttempting to reload server...",
++        )
++        try:
++            self.server.reload()
++        except Exception as e:
++            error_custom(player, f"Failed to reload server: {e}")
+ 
+     form.show(player).then(
+-        lambda player=Player, response=MessageFormResponse: remove_command(
+-            self, player, response, command
++        lambda player=Player, response=MessageFormResponse: do_remove(
++            self, player, response, command_name
+         )
+     )
+diff --git a/src/endstone_easyascommands/Utils/utils.py b/src/endstone_easyascommands/Utils/utils.py
+deleted file mode 100644
+index 4d5c72f..0000000
+--- a/src/endstone_easyascommands/Utils/utils.py
++++ /dev/null
+@@ -1,114 +0,0 @@
+-### CHAT CONFIGURATION ###
+-
+-import json
+-import os
+-import re
+-from endstone._internal.endstone_python import Player
+-from endstone.plugin import Plugin
+-
+-
+-prefix = "§l§f[§aEA§6C§f]§r >> "
+-
+-
+-def send_custom(player: Player, message: str):
+-    player.send_message(prefix + message)
+-
+-
+-def error_custom(player: Player, message: str):
+-    player.send_message(prefix + "§cError: " + message)
+-
+-
+-### DEFAULT COMMAND DATA CONFIGURATION ###
+-
+-default_data = {
+-    "commands": {
+-        "helloworld": {
+-            "description": "Example command.",
+-            "usages": ["/helloworld <message: str> <amount: int>"],
+-            "aliases": ["hello", "hi"],
+-            "permissions": ["easyas.command.all"],
+-        }
+-    },
+-    "functions": {
+-        "helloworld": [
+-            {"type": "command", "content": "say Hello, {0}!"},
+-            {"type": "command", "content": 'give "{player}" diamond {1}'},
+-        ]
+-    },
+-}
+-
+-### COMMAND CONFIGURATION MANAGEMENT ###
+-
+-# Define the path to the JSON file
+-json_file_path = os.path.abspath("./config/command_manager.json")
+-
+-
+-class logger:
+-    def info(str: str):
+-        print(str)
+-
+-    def error(str: str):
+-        print(str)
+-
+-
+-# Function to read from the JSON file
+-def read_commands_config():
+-    try:
+-        with open(json_file_path, "r") as file:
+-            data = json.load(file)
+-        return data
+-    except FileNotFoundError:
+-        logger.error(
+-            f"Error: Missing commands configuration file, generating a new one."
+-        )
+-        write_commands_config(default_data)
+-        return default_data
+-    except json.JSONDecodeError:
+-        logger.error(f"Error: Failed to decode JSON from {json_file_path}.")
+-        return {}
+-
+-
+-# Function to write to the JSON file
+-def write_commands_config(data):
+-    try:
+-        with open(json_file_path, "w") as file:
+-            json.dump(data, file, indent=4)
+-        global commandData
+-        commandData = data
+-    except IOError as e:
+-        logger.error(f"Error: Failed to write to {json_file_path}\n{e}")
+-
+-
+-def edit_commands_config(key, value):
+-    if not isinstance(key, str):
+-        logger.error("Error: Invalid key access in commands config.")
+-        return
+-    config = read_commands_config()
+-    config[key] = value
+-    write_commands_config(config)
+-
+-
+-def reset_commands(self: Plugin, player: Player):
+-    write_commands_config(default_data)
+-    global commandData
+-    commandData = default_data
+-    self.logger.info("Commands configuration has been reset to default.")
+-    send_custom(
+-        player,
+-        f"§cReset Complete!\n§eServer has been reloaded successfully!",
+-    )
+-    try:
+-        self.server.reload()
+-    except Exception as e:
+-        error_custom(player, f"Failed to reload server: {e}")
+-        return
+-
+-
+-### EXTRA UTILITIES ###
+-
+-
+-def strip_color_codes(text: str) -> str:
+-    # Regular expression to match Minecraft color codes
+-    color_code_pattern = re.compile(r"§[0-9a-fk-or]")
+-    # Substitute the color codes with an empty string
+-    return color_code_pattern.sub("", text)
+diff --git a/src/endstone_easyascommands/__init__.py b/src/endstone_easyascommands/__init__.py
+deleted file mode 100644
+index 74e4e0c..0000000
+--- a/src/endstone_easyascommands/__init__.py
++++ /dev/null
+@@ -1,5 +0,0 @@
+-from endstone_easyascommands.easyascommands import EasyAsCommands
+-
+-__all__ = [
+-    "EasyAsCommands",
+-]
+diff --git a/src/endstone_easyascommands/easyascommands.py b/src/endstone_easyascommands/easyascommands.py
+deleted file mode 100644
+index 203937b..0000000
+--- a/src/endstone_easyascommands/easyascommands.py
++++ /dev/null
+@@ -1,146 +0,0 @@
+-import typing
+-
+-import json
+-from .manager import command_manager
+-from .Utils.utils import read_commands_config, error_custom, reset_commands, send_custom
+-from endstone._internal.endstone_python import (
+-    ColorFormat,
+-    Player,
+-)
+-from endstone.command import Command, CommandSender
+-from endstone.event import event_handler
+-from endstone.plugin import Plugin
+-from .API.integrations import APIHandler
+-from .API.types import ExecutionTypes, PlaceholderTypes
+-import re
+-
+-
+-class EasyAsCommands(Plugin):
+-    prefix = "EasyAsCommands"
+-    api_version = "0.5"
+-    load = "POSTWORLD"
+-
+-    # Read command data.
+-    commandData = read_commands_config()
+-    # Add mandatory commands.
+-    commandData["commands"]["commands"] = {
+-        "description": "Opens command manager.",
+-        "usages": ["/commands"],
+-        "aliases": ["cmds", "cmdmanager", "commandmanager"],
+-        "permissions": ["easyas.command.manager"],
+-    }
+-    commandData["commands"]["resetcommands"] = {
+-        "description": "Resets all EAC commands.",
+-        "usages": ["/resetcommands"],
+-        "aliases": ["resetcmds"],
+-        "permissions": ["easyas.command.reset"],
+-    }
+-    commands = commandData["commands"]
+-
+-    permissions = {
+-        "easyas.command.manager": {
+-            "description": "Command manager permission.",
+-            "default": "op",
+-        },
+-        "easyas.command.reset": {
+-            "description": "Reset commands permission.",
+-            "default": "op",
+-        },
+-        "easyas.command.all": {
+-            "description": "All players can use this.",
+-            "default": True,
+-        },
+-        "easyas.command.op": {
+-            "description": "Only operators can use this.",
+-            "default": "op",
+-        },
+-    }
+-
+-    def on_enable(self) -> None:
+-        self.register_events(self)
+-
+-    def on_load(self):
+-        self.logger.info(
+-            f"""
+-        {ColorFormat.BLUE}                                                     
+-      _____             _____     _____                           _     
+-     |   __|___ ___ _ _|  _  |___|     |___ _____ _____ ___ ___ _| |___ 
+-     |   __| .'|_ -| | |     |_ -|   --| . |     |     | .'|   | . |_ -|
+-     |_____|__,|___|_  |__|__|___|_____|___|_|_|_|_|_|_|__,|_|_|___|___|   by palm1
+-                   |___|      
+-                                                            
+-        {ColorFormat.RESET}"""
+-        )
+-        self.logger.info(
+-            f"\n> {ColorFormat.DARK_BLUE}{ColorFormat.BOLD}Welcome to EasyAsCommands!{ColorFormat.RESET}\n> {ColorFormat.YELLOW}API Version: {self.api_version}{ColorFormat.RESET}\n> {ColorFormat.LIGHT_PURPLE}For help and updates, visit [ {ColorFormat.BLUE}https://github.com/palmmc/EasyAsCommands {ColorFormat.LIGHT_PURPLE}]{ColorFormat.RESET}"
+-        )
+-        # Begin task.
+-        APIHandler.discover_integrations(self)
+-
+-    def on_command(self, sender: CommandSender, command: Command, args: list[str]):
+-        # You can also handle commands here instead of setting an executor in on_enable if you prefer
+-        server = self.server
+-        if not (isinstance(sender, Player)):
+-            server.logger.info("Only players can use this command.")
+-            return
+-        player = sender
+-        if command.name == "commands":
+-            command_manager(self, player)
+-            return
+-        elif command.name == "resetcommands":
+-            reset_commands(self, player)
+-            return
+-        if command.name not in self.commandData["functions"]:
+-            send_custom(
+-                player,
+-                "§8This command doesn't have any functionality yet.\n§9Add it in the command manager!",
+-            )
+-            return
+-        function = self.commandData["functions"][command.name]
+-        for func in function:
+-            line = func["content"]
+-            try:
+-                # Score Placeholders
+-                line = self.replace_score_placeholders(line)
+-                # Player Placeholder
+-                if "{player}" in line:
+-                    line = line.replace("{player}", player.name)
+-                i = 0
+-                # Argument Placeholders
+-                for arg in args:
+-                    if ("{" + str(i) + "}") in line:
+-                        line = line.replace("{" + str(i) + "}", arg)
+-                    i += 1
+-                # Custom Placeholders
+-                for placeholder in PlaceholderTypes.get_types():
+-                    if "{" + placeholder + "}" in line:
+-                        line = line.replace(
+-                            "{" + placeholder + "}",
+-                            PlaceholderTypes.get_placeholder(placeholder)(player, args),
+-                        )
+-
+-                if func["type"] == "command":
+-                    server.dispatch_command(server.command_sender, line)
+-                else:
+-                    ExecutionTypes.get_execution(func["type"])(player, line, args)
+-            except Exception as e:
+-                server.logger.error(f"Error: {e}")
+-                error_custom(
+-                    player,
+-                    f"An error occurred while executing the command.\n§4Please report this to an admin.",
+-                )
+-
+-    def replace_score_placeholders(player: Player, string: str):
+-        server = player.server
+-        placeholders = re.findall(r"\{(.*?)\}", string)
+-        for placeholder in placeholders:
+-            if placeholder.startswith("score:"):
+-                objective = placeholder.split(":", 1)[1]
+-                value = (
+-                    server.scoreboard.get_objective(objective).get_score(player).value
+-                )
+-                string = re.sub(
+-                    r"\{" + re.escape(placeholder) + r"\}", str(value), string
+-                )
+-
+-        return string

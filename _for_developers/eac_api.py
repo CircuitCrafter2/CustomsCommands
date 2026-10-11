@@ -56,7 +56,7 @@ class EasyPlaceholder:
 
 class CommandManager:
     """
-    The CommandManager class is an API for developers to easily manage and add functionality to **EasyAsCommands**.
+    The CommandManager class is an API for developers to easily manage and add functionality to **CustomsCommands**.
 
     ### Example
     ```python
@@ -71,7 +71,7 @@ class CommandManager:
                 "jellydonut",
                 "This is a test command.",
                 ["/jellydonut <count: int>"],
-                ["easyas.command.all"],
+                ["customscommands.command.all"],
                 ["jd"],
                 [
                     {
@@ -124,12 +124,12 @@ class CommandManager:
             name: str,
             description: str,
             usages: list[str],
-            permissions: list[str] = ["easyas.command.op"],
+            permissions: list[str] = ["customscommands.command.op"],
             aliases: list[str] = [],
             functionality: list[SimpleFunctionality] = [],
         ):
             """
-            Registers a slash command that can be managed by EasyAsCommands.
+            Registers a slash command that can be managed by CustomsCommands.
             """
             self.manager._commands.append(
                 EasySlashCommand(

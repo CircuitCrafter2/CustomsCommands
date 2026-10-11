@@ -1,6 +1,16 @@
 ***
-# EasyAsCommands API
-**EasyAsCommands** has its own API that developers can include in their plugins to integrate their plugin with EAC.
+# CustomsCommands API
+
+> **Recommended:** register your types explicitly instead of relying on automatic discovery (disabled by default):
+> ```python
+> cc = self.server.plugin_manager.get_plugin("customscommands")  # use the name shown in your plugin list
+> if cc is not None:
+>     cc.register_execution("my_type", my_execution)      # callback(player, content, args)
+>     cc.register_placeholder("my_id", my_placeholder)    # callback(player, args) -> str
+> ```
+> The `CommandManager` class below is only used by the legacy automatic discovery.
+
+**CustomsCommands** has its own API that developers can include in their plugins to integrate their plugin with CustomsCommands.
 
 ***
 ## Adding to Plugin
@@ -25,7 +35,7 @@
 5) And you're done!
 ***
 # Usage
-The API includes many useful implementations, especially for registering types to integrate your plugin into EAC.
+The API includes many useful implementations, especially for registering types to integrate your plugin into CustomsCommands.
 
 Here is a list of all available methods and attributes that can be used:
 # `class` CommandManager
@@ -45,7 +55,7 @@ Parent class for command management.
   - ### `def` register
     > #### `name: str`, `description: str`, `usages: list[str]`, `permissions?: list[str]`, `aliases?: list[str]`, `functionality?: list[{type: str, content: str}]`
     > 
-    > Registers a slash command that can be managed by EasyAsCommands.
+    > Registers a slash command that can be managed by CustomsCommands.
   ### `example.py`
   ```python
   ## Registering a Command ##
@@ -57,7 +67,7 @@ Parent class for command management.
                 "jellydonut",
                 "This is a test command.",
                 ["/jellydonut <count: int>"],
-                ["easyas.command.all"],
+                ["customscommands.command.all"],
                 ["jd"],
                 [
                     {

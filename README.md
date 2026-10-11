@@ -7,22 +7,46 @@
 
 </div>
 
-# EasyAsCommands
+# CustomsCommands
 A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you to setup your own slash commands without any programming!
 
-## ⚠️ Experimental Integration Support
-### As of Beta `0.2.0`+
-> This plugin uses an experimental feature that discovers integrations in other plugins by **scanning their main scripts** for its API class.
-> <br>If you find this feature invasive, I recommend you do not use this plugin.
-> <br>If you would like to add EAC integration to your plugin, see the [API Documentation](/_for_developers/README.md).
+> Based on [EasyAsCommands](https://github.com/palmmc/EasyAsCommands) by palm1.
+
+## ⚠️ Integration Support
+> Automatic discovery of integrations (scanning other plugins' `.whl` files) is **disabled by default**
+> because it is invasive. Enable it with `"auto_discover_integrations": true` in the `settings` of
+> `command_manager.json` only if you trust your plugins.
+> <br>Plugins can instead register themselves explicitly, see the [API Documentation](/_for_developers/README.md).
 
 # Installation
+> **Upgrading from EasyAsCommands?** Remove the old `endstone_easyascommands-*.whl` from your plugins folder first.
+> Your `config/command_manager.json` is reused, and permissions named `easyas.command.*` are automatically
+> converted to `customscommands.command.*`.
+
 1) Download the latest [release](../../releases).
 2) Drag and drop both files ending with `.whl` into your Endstone plugin folder.
 3) Restart or reload your server. Enjoy!
 
 ### Demo
 <img src="./images/mdemo.png?raw=true">
+
+# Settings
+Stored under `"settings"` in `config/command_manager.json`:
+
+**Setting**|**Default**|**Description**
+:-----:|:-----:|:-----:
+`allow_selectors`|`false`|Lets players pass target selectors (`@a`, `@e`...) as command arguments.
+`auto_discover_integrations`|`false`|Scans other plugins' `.whl` files for integrations (invasive).
+
+# Security
+Custom commands run on the **console**, so player input is validated before it is placed in a command:
+- Arguments can't contain quotes, backslashes, line breaks or other control characters, and are limited to 256 characters.
+- Target selectors (`@a`, `@e`...) are refused unless `allow_selectors` is enabled.
+- An argument containing spaces is only accepted when the placeholder is written between quotes in the command
+  (e.g. `say "{0}"`). `{player}` is quoted automatically when needed.
+- A placeholder can't be used as the command name itself (e.g. `{0}` alone).
+- A missing argument stops the whole command before anything is executed.
+- Names, aliases, usages and permissions are validated when saving a command, and every modification re-checks the manager permission.
 
 # Features
 - ## Manager UI
@@ -31,12 +55,12 @@ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you 
   - Add functionality on command execution.
 
 # Commands
-- `/commands` - `easyas.command.manager`
-- `/resetcommands` - `easyas.command.reset`
+- `/commands` - `customscommands.command.manager`
+- `/resetcommands` - `customscommands.command.reset`
 
 # Tutorial
 ### *Using In-Game UI*
-1) With **operator** or the `easyas.command.manager` permission, run the `/commands` command.
+1) With **operator** or the `customscommands.command.manager` permission, run the `/commands` command.
 2) This is where you can add, remove, and edit existing commands.
    - Next click 'Add Command'.
 3) Here you can configure all of the different attributes of your command.
@@ -44,7 +68,7 @@ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you 
    - Try creating the following command:
      - Set the name to '`star`'.
      - Add a new usage '`/star`'.
-     - Add the permission '`easyas.command.all`'.
+     - Add the permission '`customscommands.command.all`'.
    - After that, scroll to the bottom and click **Functionality**.
 4) This is where you can make the command *do* something when it is executed. Let's do a simple example.
    - Click 'Add Execution', select 'Command', and type '`give "{player}" nether_star 1`'.

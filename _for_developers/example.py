@@ -10,7 +10,7 @@ class EAC(CommandManager):
             "jellydonut",
             "This is a test command.",
             ["/jellydonut <count: int>"],
-            ["easyas.command.all"],
+            ["customscommands.command.all"],
             ["jd"],
             [
                 {
