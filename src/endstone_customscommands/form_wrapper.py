@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from endstone._internal.endstone_python import (
+from .compat import (
     ActionForm,
     Dropdown,
     ModalForm,
@@ -31,7 +31,7 @@ class ActionFormData:
     action_form.py
 
     ```python
-    from endstone._internal.endstone_python import Player
+    from endstone import Player
     from ..form_wrapper import (
         ActionFormData,
         ActionFormResponse,
@@ -154,7 +154,7 @@ class ModalFormData:
     modal_form.py
 
     ```python
-    from endstone._internal.endstone_python import Player
+    from endstone import Player
     from ..form_wrapper import (
         ModalFormData,
         ModalFormResponse,
@@ -305,7 +305,7 @@ class ModalFormData:
             self._callback(player, response)
 
 
-from endstone._internal.endstone_python import MessageForm, Player
+from .compat import MessageForm, Player
 
 
 class MessageFormResponse:
@@ -322,7 +322,7 @@ class MessageFormData:
         message_form.py
 
         ```python
-    from endstone._internal.endstone_python import Player
+    from endstone import Player
     from ..form_wrapper import (
         MessageFormData,
         MessageFormResponse,

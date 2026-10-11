@@ -9,10 +9,7 @@ from .Utils.utils import (
 from .Utils.security import InputError
 from .Utils.render import render_template, replace_scores
 from .Utils.cooldowns import COOLDOWNS
-from endstone._internal.endstone_python import (
-    ColorFormat,
-    Player,
-)
+from .compat import ColorFormat, Player
 from endstone.command import Command, CommandSender
 from endstone.event import event_handler
 from endstone.plugin import Plugin

@@ -7,7 +7,7 @@ from ..form_wrapper import (
     MessageFormData,
     MessageFormResponse,
 )
-from endstone._internal.endstone_python import Player
+from ..compat import Player
 
 from ..Utils.utils import error_custom
 from ..Manage.edit import (

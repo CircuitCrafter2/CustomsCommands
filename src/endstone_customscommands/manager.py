@@ -1,6 +1,4 @@
-from endstone._internal.endstone_python import (
-    Player,
-)
+from .compat import Player
 import json
 import os
 

@@ -1,7 +1,7 @@
 import os
 import zipfile
 import importlib.util
-from endstone._internal.endstone_python import ColorFormat
+from ..compat import ColorFormat
 from endstone.plugin import Plugin
 from .types import ExecutionTypes, PlaceholderTypes
 from ..Utils.utils import BUILTIN_COMMANDS, read_commands_config, write_commands_config

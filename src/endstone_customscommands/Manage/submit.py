@@ -1,4 +1,4 @@
-from endstone._internal.endstone_python import Player
+from ..compat import Player
 from endstone.plugin import Plugin
 from ..Utils.utils import (
     BUILTIN_COMMANDS,

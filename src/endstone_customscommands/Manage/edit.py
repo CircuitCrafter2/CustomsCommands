@@ -16,7 +16,7 @@ from ..form_wrapper import (
     ModalFormData,
     ModalFormResponse,
 )
-from endstone._internal.endstone_python import Player
+from ..compat import Player
 from ..API.types import ConditionTypes, ExecutionTypes
 from ..Utils.security import (
     MAX_COOLDOWN,

@@ -5,7 +5,7 @@ import json
 import os
 import re
 import shutil
-from endstone._internal.endstone_python import Player
+from ..compat import Player
 from endstone.plugin import Plugin
 from .security import migrate_permission, PERMISSION_PREFIX
 

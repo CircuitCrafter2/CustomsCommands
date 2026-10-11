@@ -1,4 +1,4 @@
-from endstone._internal.endstone_python import Player
+from endstone import Player
 from .eac_api import CommandManager
 
 

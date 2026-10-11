@@ -1,5 +1,5 @@
 import typing
-from endstone._internal.endstone_python import Player
+from endstone import Player
 
 ### Object Types ###
 
@@ -60,7 +60,7 @@ class CommandManager:
 
     ### Example
     ```python
-    from endstone._internal.endstone_python import Player
+    from endstone import Player
     from .eac_api import CommandManager
 
     class EAC(CommandManager):

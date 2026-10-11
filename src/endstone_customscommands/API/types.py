@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from endstone._internal.endstone_python import Player
+from ..compat import Player
 
 
 class ExecutionTypes:
