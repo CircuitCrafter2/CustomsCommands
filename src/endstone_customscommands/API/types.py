@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import re
 from types import SimpleNamespace
 
 from ..compat import Player
@@ -11,6 +14,12 @@ class ExecutionTypes:
     - strict: validate player input as a server command (see Utils/security.py).
     - strip_formatting: remove '§' formatting codes from inserted values.
     - hint: example content shown in the editor.
+    - group: the dependency (plugin) the type belongs to; such types are listed under
+      "Dependencies" in the editor and only offered when that plugin is active.
+    - needs_content: False for types that take no text (the content is stored as "-").
+    - command_start: for strict types, refuse a placeholder as the first word (that guard
+      is meant for full commands, not for types that only receive arguments).
+    - validator: validator(content) -> error text or None, run when a line is saved.
     Entries added by the legacy discovery may only have name/callback.
     """
 
@@ -23,12 +32,18 @@ class ExecutionTypes:
         strict: bool = False,
         strip_formatting: bool = False,
         hint: str = "",
+        group: str | None = None,
+        needs_content: bool = True,
+        command_start: bool = True,
+        validator=None,
     ):
         """Registers an execution type (callback(player, content, args))."""
         if not isinstance(name, str) or not name or name == "command":
             raise ValueError("Invalid execution type name.")
         if name in ExecutionTypes.get_types():
             raise ValueError(f"Execution type '{name}' is already registered.")
+        if group is not None and not re.match(r"^[A-Za-z0-9][A-Za-z0-9 _\-]{0,31}$", group):
+            raise ValueError("Invalid group name.")
         ExecutionTypes.executions.append(
             SimpleNamespace(
                 name=name,
@@ -36,6 +51,10 @@ class ExecutionTypes:
                 strict=strict,
                 strip_formatting=strip_formatting,
                 hint=hint,
+                group=group,
+                needs_content=needs_content,
+                command_start=command_start,
+                validator=validator,
             )
         )
 
@@ -69,6 +88,22 @@ class ExecutionTypes:
     def strips_formatting(name) -> bool:
         execution = ExecutionTypes._find(name)
         return bool(getattr(execution, "strip_formatting", False))
+
+    @staticmethod
+    def get_group(name):
+        return getattr(ExecutionTypes._find(name), "group", None)
+
+    @staticmethod
+    def needs_content(name) -> bool:
+        return bool(getattr(ExecutionTypes._find(name), "needs_content", True))
+
+    @staticmethod
+    def checks_command_start(name) -> bool:
+        return bool(getattr(ExecutionTypes._find(name), "command_start", True))
+
+    @staticmethod
+    def get_validator(name):
+        return getattr(ExecutionTypes._find(name), "validator", None)
 
     @staticmethod
     def get_hint(name) -> str:

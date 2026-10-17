@@ -1,3 +1,4 @@
+<a href="../../"><img src="./images/badge.png?raw=true" width="128"></a><br>
 <div align="left">
   
 [![view - Documentation](https://img.shields.io/badge/view-Documentation-blue?style=for-the-badge)](../../wiki/ "Go to project documentation")
@@ -13,14 +14,15 @@ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you 
 
 ## ⚠️ Integration Support
 > Automatic discovery of integrations (scanning other plugins' `.whl` files) is **disabled by default**
-> because it is invasive. Enable it with `"auto_discover_integrations": true` in the `settings` of
-> `command_manager.json` only if you trust your plugins.
+> because it is invasive. Enable it with `"auto_discover_integrations": true` in `config.json`
+> only if you trust your plugins.
 > <br>Plugins can instead register themselves explicitly, see the [API Documentation](/_for_developers/README.md).
 
 # Installation
 > **Upgrading from EasyAsCommands?** Remove the old `endstone_easyascommands-*.whl` from your plugins folder first.
-> Your `config/command_manager.json` is reused, and permissions named `easyas.command.*` are automatically
-> converted to `customscommands.command.*`.
+> Your `config/command_manager.json` is **moved automatically** into the plugin's data folder
+> (`plugins/customscommands/`) the first time the plugin starts, and permissions named `easyas.command.*` are
+> converted to `customscommands.command.*`. The old file is kept as `command_manager.json.migrated`.
 
 1) Download the latest [release](../../releases).
 2) Drag and drop both files ending with `.whl` into your Endstone plugin folder.
@@ -29,13 +31,62 @@ A plugin for [Endstone](https://github.com/EndstoneMC/endstone) that allows you 
 ### Demo
 <img src="./images/mdemo.png?raw=true">
 
+# Data folder
+Like any plugin, CustomsCommands keeps its files in `plugins/customscommands/`:
+
+**File / folder**|**Content**
+:-----:|:-----:
+`config.json`|The settings (see below).
+`commands.json`|Your commands and their executions.
+`lang/`|Translations: every text of the plugin can be customised.
+`exports/`|Files created by **Export** (and where **Import** reads from).
+`backups/`|Automatic backups made before a reset or an import (the last 20 are kept).
+`data/usage.json`|Usage counters for usage limits.
+
 # Settings
-Stored under `"settings"` in `config/command_manager.json`:
+Stored in `plugins/customscommands/config.json`:
 
 **Setting**|**Default**|**Description**
 :-----:|:-----:|:-----:
+`language`|`"en_US"`|Language file used for every text (`lang/<language>.json`). See [Translations](../../wiki/Translations).
+`page_size`|`8`|Commands shown per page in the manager (3 to 20).
+`integrations`|see wiki|Turns StonePerms / MediaPlayer / PlaceholderAPI support on or off and holds the MediaPlayer command templates. See [Integrations](../../wiki/Integrations).
 `allow_selectors`|`false`|Lets players pass target selectors (`@a`, `@e`...) as command arguments.
 `auto_discover_integrations`|`false`|Scans other plugins' `.whl` files for integrations (invasive).
+`custom_permission_default`|`"op"`|Who has the specific permissions (`customscommands.custom.<command>`) by default: `"op"` or `"everyone"`. Needs a reload.
+
+# Specific permission per command
+Every command can have its own permission, named `customscommands.custom.<command>` (for example `customscommands.custom.helloworld`).
+- In the manager: **Manage Permissions → Add Specific Permission** (the command needs a name first).
+- The plugin declares these permissions automatically. By default only operators have them (`custom_permission_default`), so you can grant them to groups or players with a permissions plugin. Use `"everyone"` to give them to all players.
+- Renaming a command renames its specific permission and its usages too.
+
+# Translations
+Every message and every UI text is a key in `plugins/customscommands/lang/en_US.json`. Edit that file to change any wording, or
+create another file (for example `fr_FR.json`) containing only the keys you translate, then set `"language": "fr_FR"` in
+`config.json`. Missing keys fall back to English. Apply changes with `/ccreload`. See [Translations](../../wiki/Translations).
+
+# Export / Import
+In the manager, **Export / Import** saves all your commands in `exports/` and imports commands from a file (add new ones, overwrite
+same-named ones, or replace everything). Every imported command is validated, and a backup is made first.
+See [Export and Import](../../wiki/Export-and-Import).
+
+# Argument rules and usage limits
+- **Manage Arguments** limits what players may type: a list of allowed values or a number range. See [Argument Rules](../../wiki/Argument-Rules).
+- **Set Usage Limit** limits how many times each player may use a command, for good or per period. See [Usage Limits](../../wiki/Usage-Limits).
+- Each execution line can have its own **conditions** and the lines can be reordered.
+
+# Integrations (optional dependencies)
+CustomsCommands works with other plugins when they are installed. Their features are listed under **Dependencies** in the editor
+(and **Command Manager → Dependencies** shows their state). See [Integrations](../../wiki/Integrations).
+
+**Plugin**|**Adds**
+:-----:|:-----:
+[StonePerms](https://github.com/Daniel-Ric/StonePerms)|Executions to add/remove groups, set/unset permissions (also temporary) and promote players.
+[MediaPlayer](https://github.com/ReallocAll/endstone-mediaplayer)|Executions to play, pause, resume and stop `.nbs` music. Its `/mpm` command templates are configurable.
+[PlaceholderAPI for Endstone](https://pypi.org/project/endstone-papi/)|`{identifier:params}` placeholders in executions and conditions.
+
+Each one can be turned off in `config.json` (`integrations`).
 
 # Security
 Custom commands run on the **console**, so player input is validated before it is placed in a command:
@@ -123,16 +174,16 @@ In the manager, use **Manage Conditions** and **Set Cooldown** when editing a co
    - After that, scroll to the bottom and click **Functionality**.
 4) This is where you can make the command *do* something when it is executed. Let's do a simple example.
    - Click 'Add Execution', select 'Command', and type '`give "{player}" nether_star 1`'.
-   - If you want to learn more about functionality, see the wiki page [Functionality](../../wiki/Functionality).
+   - If you want to learn more about functionality, see the wiki page [Execution Types](../../wiki/Execution-Types).
    - When you are finished, hit **Submit**, then back out again to the main editor.
 5) Click **Submit**, and your server will reload to apply your new command.
 6) Now run `/star`; you should be given a nether star.
 
 ### *Using JSON Editor*
 1) For more advanced users, a more efficient approach is to edit the JSON directly.
-To start, navigate to your `/bedrock_server/config/` folder; the `/config/` folder should be in the same directory as your `/plugins/` folder.
-2) Open `command_manager.json` in your choice of text editor. You don't need anything fancy; Notepad will do.
-3) Begin editing. Refer to the wiki page [JSON Arguments](../../wiki/JSON-Arguments) for available arguments.
+To start, open the `plugins/customscommands/` folder of your server.
+2) Open `commands.json` in your choice of text editor. You don't need anything fancy; Notepad will do.
+3) Begin editing. Refer to the wiki page [Configuration](../../wiki/Configuration) for available keys.
 Once done, save the file and reload/restart your server for the changes to take effect.
 
 ### 🥳 Congratulations!
@@ -145,12 +196,15 @@ I hope you find this plugin useful! Enjoy!
 :-----:|:-----:
 Command Manager UI|✅
 Reset command|✅
-Documentation|🔷
+Documentation|✅
 Placeholder Support|✅
 More Execution Types|✅
 Conditions & Cooldowns|✅
 Developer API|✅
-Addon Integration|🔶
+Translations|✅
+Export / Import|✅
+Argument rules & usage limits|✅
+Addon Integration|✅
 
 ✅ - Complete
 🔷 - Work in Progress

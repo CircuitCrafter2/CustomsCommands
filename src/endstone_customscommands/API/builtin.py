@@ -4,6 +4,7 @@ import math
 from datetime import datetime
 
 from .types import ConditionTypes, ExecutionTypes, PlaceholderTypes
+from ..Utils.lang import t
 from ..Utils.render import render_template
 from ..Utils.security import InputError, compare_values, parse_expression
 
@@ -58,7 +59,7 @@ def _expression_condition(player, content, args) -> bool:
 def _require(player, attribute: str, label: str):
     value = getattr(player, attribute, None)
     if value is None:
-        raise InputError(f"{{{label}}} isn't available on this server version.")
+        raise InputError(t("err.placeholder_unavailable", placeholder="{" + label + "}"))
     return value
 
 

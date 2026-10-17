@@ -4,18 +4,23 @@ build-backend = "hatchling.build"
 
 [project]
 name = "endstone_customscommands"
-version = "0.4.1"
+version = "1.0.0"
 dependencies = []
+requires-python = ">=3.10"
 authors = [
     { name = "palm1" },
 ]
 description = "Create your own slash commands in-game for Endstone (based on EasyAsCommands by palm1)."
 readme = "README.md"
 license = { file = "LICENSE" }
-keywords = ["endstone", "customscommands", "commands", "server"]
+keywords = ["endstone", "customscommands", "commands", "server", "stoneperms", "mediaplayer"]
 
 [project.urls]
 Homepage = "https://github.com/CircuitCrafter2/CustomCommands"
 
 [project.entry-points."endstone"]
 customscommands = "endstone_customscommands:CustomsCommands"
+
+[tool.hatch.build.targets.wheel]
+# Everything inside the package is shipped, including lang/*.json (the default translations).
+packages = ["src/endstone_customscommands"]

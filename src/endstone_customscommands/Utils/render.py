@@ -3,10 +3,31 @@
 import random
 import re
 
-from .security import InputError, PLACEHOLDER_RE, render_line
+from .lang import t
+from .security import InputError, PLACEHOLDER_RE, Unresolved, render_line
 from ..API.types import PlaceholderTypes
 
 MAX_RANDOM = 1_000_000_000
+
+# Resolvers added by soft-dependency integrations: resolver(player, key) -> str | None.
+# They are only asked about placeholders this plugin doesn't know ({identifier:params}).
+EXTERNAL_RESOLVERS = []
+
+
+def add_external_resolver(resolver) -> None:
+    if resolver not in EXTERNAL_RESOLVERS:
+        EXTERNAL_RESOLVERS.append(resolver)
+
+
+def _ask_external(player, key: str) -> str:
+    for resolver in EXTERNAL_RESOLVERS:
+        try:
+            value = resolver(player, key)
+        except Exception:
+            continue
+        if value is not None:
+            return str(value)
+    raise Unresolved()
 
 
 def replace_scores(player, string: str, warn=None) -> str:
@@ -34,9 +55,9 @@ def _random(key: str) -> str:
             raise ValueError
         low, high = int(parts[1]), int(parts[2])
     except ValueError:
-        raise InputError(f"Invalid placeholder '{{{key}}}': use {{random:min:max}}.")
+        raise InputError(t("err.random_invalid", placeholder="{" + key + "}"))
     if low > high or abs(low) > MAX_RANDOM or abs(high) > MAX_RANDOM:
-        raise InputError(f"Invalid range in '{{{key}}}'.")
+        raise InputError(t("err.random_range", placeholder="{" + key + "}"))
     return str(random.randint(low, high))
 
 
@@ -51,6 +72,8 @@ def resolve_custom(player, args, template: str) -> dict:
             custom[key] = lambda key=key: PlaceholderTypes.get_placeholder(key)(
                 player, args
             )
+        elif EXTERNAL_RESOLVERS and ":" in key and not key.startswith("score:"):
+            custom[key] = lambda key=key: _ask_external(player, key)
     return custom
 
 
@@ -62,6 +85,7 @@ def render_template(
     strict: bool = True,
     strip_formatting: bool = False,
     warn=None,
+    check_start: bool = True,
 ) -> str:
     template = replace_scores(player, template, warn)
     return render_line(
@@ -72,4 +96,5 @@ def render_template(
         allow_selectors=allow_selectors,
         strict=strict,
         strip_formatting=strip_formatting,
+        check_start=check_start,
     )
